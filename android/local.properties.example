@@ -1,0 +1,11 @@
+# Copia este archivo como "local.properties" (en la misma carpeta) y completa
+# los valores con tus propias credenciales. "local.properties" NO se sube a git.
+
+sdk.dir=/ruta/a/tu/Android/Sdk
+flutter.sdk=/ruta/a/tu/flutter
+
+# Clave de Google Maps SDK for Android (Google Cloud Console)
+MAPS_API_KEY=TU_GOOGLE_MAPS_API_KEY
+
+# Access token de Mapbox (https://account.mapbox.com/access-tokens/)
+MAPBOX_ACCESS_TOKEN=TU_MAPBOX_ACCESS_TOKEN
