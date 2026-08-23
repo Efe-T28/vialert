@@ -184,4 +184,4 @@ Este es el entregable correspondiente al **MVP** del taller: cubre el flujo
 principal (reporte de alerta → asignación → atención) de forma funcional
 sobre datos reales de Firebase. Quedan fuera de este alcance: pruebas
 automatizadas, reglas de seguridad de Firestore para producción, y manejo
-de errores de red exhaustivo — previstos para entregas posteriores.
+de errores de red exhaustivo previstos para entregas posteriores.
