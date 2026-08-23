@@ -141,6 +141,6 @@ class AuthService {
     } catch (e) {
       print("Error en getUserRole: $e");
       return null;
-    }
+    } 
   }
 }
