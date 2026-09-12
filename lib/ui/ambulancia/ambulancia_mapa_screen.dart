@@ -23,7 +23,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
   String? selectedAlertaId;
   AlertaModel? selectedAlerta;
 
-  // ✅ Para el temporizador
+  
   Timer? _countdownTimer;
   int _remainingSeconds = 0;
 
@@ -54,7 +54,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     mapController.moveCamera(alerta.position, zoom: 15);
   }
 
-  // ✅ Atender alerta con simulación de tiempo
+  
   Future<void> _atenderAlerta() async {
     if (selectedAlerta == null) return;
 
@@ -66,7 +66,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     setState(() => selectedAlertaId = 'loading');
 
     try {
-      // Asignar ambulancia (marca como "enProceso")
+      
       await alertController.asignarAmbulanciaAAlerta(
         selectedAlerta!.id,
         auth.uid!,
@@ -74,7 +74,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
 
       await ambCtrl.setEstado(auth.uid!, 'enRuta');
 
-      // Generar ruta
+      
       final myLocation = await mapController.getMyLocation();
       if (myLocation != null) {
         await mapController.createRoute(myLocation, selectedAlerta!.position);
@@ -84,7 +84,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
 
       setState(() {
         selectedAlertaId = selectedAlerta!.id;
-        _remainingSeconds = 30; // ✅ 30 segundos de simulación
+        _remainingSeconds = 30; 
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -101,7 +101,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
         ),
       );
 
-      // ✅ INICIAR TEMPORIZADOR DE 30 SEGUNDOS
+      
       _startCountdown();
     } catch (e) {
       if (!mounted) return;
@@ -118,7 +118,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     }
   }
 
-  // ✅ Temporizador que cuenta hacia atrás
+  
   void _startCountdown() {
     _countdownTimer?.cancel();
 
@@ -132,7 +132,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
         _remainingSeconds--;
       });
 
-      // ✅ Cuando llega a 0, marcar automáticamente como atendida
+      
       if (_remainingSeconds <= 0) {
         timer.cancel();
         _finalizarAtencion();
@@ -140,7 +140,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     });
   }
 
-  // ✅ Finalizar atención automáticamente
+  
   Future<void> _finalizarAtencion() async {
     if (selectedAlertaId == null || selectedAlertaId == 'loading') return;
 
@@ -178,7 +178,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     });
   }
 
-  // ✅ Opción para finalizar manualmente
+  
   Future<void> _finalizarManualmente() async {
     if (selectedAlertaId == null || selectedAlertaId == 'loading') return;
 
@@ -231,7 +231,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     final alertas = context.watch<AlertController>().getAlertasActivas();
     final polylines = context.watch<MapController>().polylines;
 
-    // ✅ Marcadores: alertas activas Y en proceso
+    
     final Set<Marker> markers = {};
 
     for (var a in alertas) {
@@ -248,7 +248,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
           onTap: () => _onAlertaTapped(a),
         ));
       }
-      // ✅ Mostrar también la alerta EN PROCESO (durante los 30 segundos)
+      
       else if (a.estado == AlertState.enProceso && a.id == selectedAlertaId) {
         markers.add(Marker(
           markerId: MarkerId(a.id),
@@ -292,7 +292,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
             },
           ),
 
-          // ✅ CARD: ALERTA SELECCIONADA (no en proceso)
+          
           if (selectedAlerta != null && selectedAlertaId == null)
             Positioned(
               bottom: 20,
@@ -370,7 +370,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          // ✅ CARD: EN RUTA CON TEMPORIZADOR
+          
           if (selectedAlertaId != null &&
               selectedAlertaId != 'loading' &&
               _remainingSeconds > 0)
@@ -430,7 +430,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      // ✅ TEMPORIZADOR VISUAL
+                      
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -453,7 +453,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // ✅ BARRA DE PROGRESO
+                      
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
@@ -471,7 +471,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          // ✅ LOADING
+          
           if (selectedAlertaId == 'loading')
             Container(
               color: Colors.black45,
@@ -492,7 +492,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          // ✅ NO HAY ALERTAS
+          
           if (alertas.isEmpty && selectedAlertaId == null)
             const Positioned(
               top: 16,
