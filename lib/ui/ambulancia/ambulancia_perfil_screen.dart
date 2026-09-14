@@ -82,16 +82,30 @@ class _AmbulanciaPerfilScreenState extends State<AmbulanciaPerfilScreen> {
     );
 
     if (confirm != true) return;
+    if (!mounted) return;
 
     final auth = context.read<AuthController>();
     final ambCtrl = context.read<AmbulanciaController>();
 
-    // ✅ LIBERAR PERSONAL ANTES DE CERRAR SESIÓN
     if (auth.uid != null) {
-      await ambCtrl.liberarPersonalYResetAmbulancia(auth.uid!);
+      try {
+        await ambCtrl.liberarPersonalYResetAmbulancia(auth.uid!);
+      } catch (e) {
+        // Fallo técnico al liberar personal: ya no se silencia en la
+        // capa de datos. Se captura aquí para no bloquear el cierre de
+        // sesión del usuario; el personal quedará para revisión manual
+        // por un administrador si la liberación no se completó.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  "No se pudo liberar el personal asignado. Se cerrará sesión de todas formas."),
+            ),
+          );
+        }
+      }
     }
 
-    // ✅ CERRAR SESIÓN (AuthWrapper detectará el cambio automáticamente)
     await auth.logout();
 
     if (!mounted) return;

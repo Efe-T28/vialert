@@ -1,14 +1,11 @@
-// lib/services/location_service.dart
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'i_location_service.dart';
 
-/// Servicio para obtener la ubicación del dispositivo y exponer stream opcional.
-class LocationService {
+class LocationService implements ILocationService {
   Future<bool> _checkPermissions() async {
     bool enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) {
-      // Geolocator no permite solicitar activar el servicio directamente;
-      // el usuario debe activarlo desde ajustes del sistema.
       return false;
     }
 
@@ -24,6 +21,7 @@ class LocationService {
     return true;
   }
 
+  @override
   Future<LatLng?> getCurrentLocation() async {
     final ok = await _checkPermissions();
     if (!ok) return null;
@@ -31,7 +29,7 @@ class LocationService {
     return LatLng(pos.latitude, pos.longitude);
   }
 
-  /// Stream de ubicación (útil para tracking de ambulancia)
+  @override
   Stream<LatLng>? onLocationChanged() {
     try {
       return Geolocator.getPositionStream().map((pos) {

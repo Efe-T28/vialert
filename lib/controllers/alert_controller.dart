@@ -22,7 +22,7 @@ class AlertController extends ChangeNotifier {
     required String type,
     required String description,
     required LatLng position,
-    required String creadaPorUsuarioId, // ✅ Ahora será el nombre
+    required String creadaPorUsuarioId,
   }) async {
     final id = _uuid.v4();
     final alerta = AlertaModel(
@@ -50,12 +50,10 @@ class AlertController extends ChangeNotifier {
     });
   }
 
-  /// Alertas creadas por un usuario específico
   List<AlertaModel> getAlertasByUsuario(String usuarioId) {
     return alerts.where((a) => a.creadaPorUsuarioId == usuarioId).toList();
   }
 
-  /// Alertas atendidas por una ambulancia específica
   List<AlertaModel> getAlertasAtendidasByAmbulancia(String ambulanciaId) {
     return alerts
         .where((a) =>
@@ -64,7 +62,6 @@ class AlertController extends ChangeNotifier {
         .toList();
   }
 
-  /// Alertas activas (no atendidas)
   List<AlertaModel> getAlertasActivas() {
     return alerts.where((a) => a.estado == AlertState.activa).toList();
   }

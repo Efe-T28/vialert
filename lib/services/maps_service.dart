@@ -1,16 +1,13 @@
-// lib/services/maps_service.dart
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:http/http.dart' as http;
 
-/// Servicio para Google Directions API.
-/// Reemplaza `apiKey` por tu clave de Directions (preferible server key o key restricta).
-class MapsService {
-  final String apiKey = '';
+import 'i_maps_service.dart';
+class MapsService implements IMapsService {
+  final String apiKey = 'AIzaSyBJn1LJ_lIDcMfi0eQAXHuCP-SSQMF2dg0';
 
-  /// Retorna lista de LatLng (polyline) y opcionalmente distancia/duracion.
-  /// Devuelve null si hay error.
+  @override
   Future<List<LatLng>?> getRoute(LatLng origin, LatLng destination) async {
     try {
       final url =
@@ -27,7 +24,7 @@ class MapsService {
     }
   }
 
-  /// Opción: obtener distancia y duración (en forma legible) desde la respuesta
+  @override
   Future<Map<String, dynamic>?> getRouteSummary(
       LatLng origin, LatLng destination) async {
     try {

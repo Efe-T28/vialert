@@ -1,9 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../domain/role_resolver.dart';
+import '../domain/resolvers/roles_collection_resolver.dart';
+import '../domain/resolvers/usuarios_collection_resolver.dart';
+import '../domain/resolvers/ambulancias_collection_resolver.dart';
+import '../domain/resolvers/admins_collection_resolver.dart';
+
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _db;
+  final List<RoleResolver> _roleResolvers;
+
+  AuthService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? db,
+    List<RoleResolver>? roleResolvers,
+  })  : _auth = auth ?? FirebaseAuth.instance,
+        _db = db ?? FirebaseFirestore.instance,
+        _roleResolvers = roleResolvers ??
+            [
+              RolesCollectionResolver(),
+              UsuariosCollectionResolver(),
+              AmbulanciasCollectionResolver(),
+              AdminsCollectionResolver(),
+            ];
 
   /// Stream de cambios en autenticación
   Stream<User?> authStateChanges() => _auth.authStateChanges();
@@ -26,7 +47,6 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    // 1. Crear usuario en Auth
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -36,7 +56,6 @@ class AuthService {
     final uid = user.uid;
 
     try {
-      // 2. Crear documento en la colección 'usuarios'
       await _db.collection('usuarios').doc(uid).set({
         'nombre': nombre,
         'apellido': apellido,
@@ -47,15 +66,11 @@ class AuthService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 3. Crear documento en 'roles'
       await _db.collection('roles').doc(uid).set({
         'rol': 'usuario',
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      // Si falla la escritura en Firestore, no dejar un usuario huérfano
-      // en Auth: lo eliminamos para que el registro se pueda reintentar
-      // limpiamente con el mismo correo.
       await user.delete();
       rethrow;
     }
@@ -63,7 +78,6 @@ class AuthService {
     return user;
   }
 
-  /// Registrar ambulancia SIN perder la sesión del admin
   Future<void> registerAmbulanciaPreservandoAdmin({
     required String adminEmail,
     required String adminPassword,
@@ -79,7 +93,6 @@ class AuthService {
       throw Exception("No hay admin autenticado");
     }
 
-    // 1. Crear usuario ambulancia (esto LOGUEA como ambulancia)
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -87,7 +100,6 @@ class AuthService {
 
     final ambUid = cred.user!.uid;
 
-    // 2. Crear documento en colección 'ambulancias'
     await _db.collection('ambulancias').doc(ambUid).set({
       'email': email,
       'placa': placa,
@@ -100,16 +112,13 @@ class AuthService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // 3. Rol
     await _db.collection('roles').doc(ambUid).set({
       'rol': 'ambulancia',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // 4. Cerrar sesión de ambulancia
     await _auth.signOut();
 
-    // 5. VOLVER a iniciar sesión como admin
     await _auth.signInWithEmailAndPassword(
       email: adminEmail,
       password: adminPassword,
@@ -123,24 +132,14 @@ class AuthService {
 
   Future<String?> getUserRole(String uid) async {
     try {
-      final roleDoc = await _db.collection('roles').doc(uid).get();
-      if (roleDoc.exists && roleDoc.data()?['rol'] != null) {
-        return roleDoc['rol'] as String;
+      for (final resolver in _roleResolvers) {
+        final rol = await resolver.resolve(_db, uid);
+        if (rol != null) return rol;
       }
-
-      final u = await _db.collection('usuarios').doc(uid).get();
-      if (u.exists) return u.data()?['rol'] ?? "usuario";
-
-      final amb = await _db.collection('ambulancias').doc(uid).get();
-      if (amb.exists) return "ambulancia";
-
-      final adm = await _db.collection('admins').doc(uid).get();
-      if (adm.exists) return "admin";
-
       return null;
     } catch (e) {
       print("Error en getUserRole: $e");
       return null;
-    } 
+    }
   }
 }

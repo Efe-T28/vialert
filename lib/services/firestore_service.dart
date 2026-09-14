@@ -18,9 +18,7 @@ import '../models/usuario_model.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // -------------------------
-  // ALERTAS
-  // -------------------------
+
   Stream<List<AlertaModel>> streamAlertas() {
     return _db.collection('alertas').snapshots().map((snap) => snap.docs
         .map((d) => AlertaModel.fromMap(d.id, d.data()))
@@ -41,9 +39,6 @@ class FirestoreService {
     return AlertaModel.fromMap(s.id, s.data()!);
   }
 
-  // -------------------------
-  // USUARIOS
-  // -------------------------
   Future<UsuarioModel?> getUsuarioByUid(String uid) async {
     final snap = await _db.collection('usuarios').doc(uid).get();
     if (!snap.exists) return null;
@@ -54,9 +49,6 @@ class FirestoreService {
     await _db.collection('usuarios').doc(uid).set(u.toMap());
   }
 
-  // -------------------------
-  // PERSONAL (Opción 1: estado en cada personal)
-  // -------------------------
   CollectionReference _conductoresCol() =>
       _db.collection('personal').doc('conductores').collection('items');
 
@@ -112,9 +104,6 @@ class FirestoreService {
     await _paramedicosCol().doc(id).update(data);
   }
 
-  // -------------------------
-  // AMBULANCIAS
-  // -------------------------
   Stream<List<AmbulanciaModel>> streamAmbulancias() {
     return _db.collection('ambulancias').snapshots().map((snap) => snap.docs
         .map((d) => AmbulanciaModel.fromMap(d.id, d.data()))
@@ -135,11 +124,6 @@ class FirestoreService {
     await _db.collection('ambulancias').doc(id).update(data);
   }
 
-  // -------------------------
-  // UTILS: operaciones atómicas (transacciones)
-  // -------------------------
-  /// Reserva personal (conductor o paramedico) de forma transaccional:
-  /// devuelve true si pudo reservar (estado -> 'ocupado' y ambulanciaId)
   Future<bool> reservarPersonal({
     required String tipo, // 'conductor' | 'paramedico'
     required String personalId,
@@ -150,6 +134,8 @@ class FirestoreService {
     try {
       return await _db.runTransaction<bool>((tx) async {
         final snap = await tx.get(ref);
+        // 'false' aquí es una respuesta de negocio válida: el personal
+        // no existe o ya está ocupado. No es un error técnico.
         if (!snap.exists) return false;
         final data = snap.data() as Map<String, dynamic>;
         final estado = data['estado'] as String? ?? 'disponible';
@@ -158,7 +144,7 @@ class FirestoreService {
         return true;
       });
     } catch (_) {
-      return false;
+      rethrow;
     }
   }
 
@@ -172,7 +158,81 @@ class FirestoreService {
       await ref.update({'estado': 'disponible', 'ambulanciaId': null});
       return true;
     } catch (_) {
-      return false;
+      rethrow;
+    }
+  }
+
+  Future<bool> asignarPersonalAAmbulancia({
+    required String ambulanciaId,
+    String? conductorId,
+    String? paramedicoId,
+  }) async {
+    final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
+    final conductorRef = conductorId != null
+        ? _conductoresCol().doc(conductorId)
+        : null;
+    final paramRef =
+        paramedicoId != null ? _paramedicosCol().doc(paramedicoId) : null;
+
+    try {
+      await _db.runTransaction((tx) async {
+        final ambSnap = await tx.get(ambRef);
+        if (!ambSnap.exists) throw Exception('Ambulancia no existe');
+
+        final updateMap = <String, dynamic>{};
+        if (conductorId != null) updateMap['currentConductorId'] = conductorId;
+        if (paramedicoId != null) {
+          updateMap['currentParamedicoId'] = paramedicoId;
+        }
+        updateMap['estadoOperativo'] = 'enRuta';
+
+        tx.update(ambRef, updateMap);
+
+        if (conductorRef != null) {
+          tx.update(conductorRef,
+              {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
+        }
+        if (paramRef != null) {
+          tx.update(
+              paramRef, {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
+        }
+      });
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> liberarPersonalYResetAmbulancia(String ambulanciaId) async {
+    final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
+    try {
+      await _db.runTransaction((tx) async {
+        final ambSnap = await tx.get(ambRef);
+        if (!ambSnap.exists) return;
+        final data = ambSnap.data()!;
+        final currentConductorId = data['currentConductorId'] as String?;
+        final currentParamedicoId = data['currentParamedicoId'] as String?;
+
+        tx.update(ambRef, {
+          'currentConductorId': null,
+          'currentParamedicoId': null,
+          'currentAlertaId': null,
+          'estadoOperativo': 'habilitada',
+        });
+
+        if (currentConductorId != null) {
+          tx.update(_conductoresCol().doc(currentConductorId),
+              {'estado': 'disponible', 'ambulanciaId': null});
+        }
+
+        if (currentParamedicoId != null) {
+          tx.update(_paramedicosCol().doc(currentParamedicoId),
+              {'estado': 'disponible', 'ambulanciaId': null});
+        }
+      });
+      return true;
+    } catch (e) {
+      rethrow;
     }
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
@@ -7,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/alert_controller.dart';
 import '../../controllers/map_controller.dart';
 import '../../controllers/auth_controller.dart';
-import '../../controllers/ambulancia_controller.dart';
+import '../../controllers/atencion_alerta_controller.dart';
 import '../../models/alerta_model.dart';
 
 class AmbulanciaMapaScreen extends StatefulWidget {
@@ -20,142 +19,33 @@ class AmbulanciaMapaScreen extends StatefulWidget {
 class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
   late final MapController mapController;
   late final AlertController alertController;
-  String? selectedAlertaId;
-  AlertaModel? selectedAlerta;
+  late final AtencionAlertaController atencionController;
 
-  
-  Timer? _countdownTimer;
-  int _remainingSeconds = 0;
+  AlertaModel? selectedAlerta;
 
   @override
   void initState() {
     super.initState();
     mapController = context.read<MapController>();
     alertController = context.read<AlertController>();
+    atencionController = context.read<AtencionAlertaController>();
+    atencionController.addListener(_onAtencionChanged);
   }
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
+    atencionController.removeListener(_onAtencionChanged);
     super.dispose();
   }
 
-  void _onMapCreated(GoogleMapController controller) {
-    mapController.setMapController(controller);
-  }
-
-  void _onAlertaTapped(AlertaModel alerta) {
-    setState(() {
-      selectedAlerta = alerta;
-      selectedAlertaId = null;
-      _remainingSeconds = 0;
-    });
-
-    mapController.moveCamera(alerta.position, zoom: 15);
-  }
-
-  
-  Future<void> _atenderAlerta() async {
+  void _onAtencionChanged() {
     if (selectedAlerta == null) return;
+    if (atencionController.selectedAlertaId != null) return;
+    if (atencionController.isLoading) return;
 
-    final auth = context.read<AuthController>();
-    final ambCtrl = context.read<AmbulanciaController>();
+    setState(() => selectedAlerta = null);
 
-    if (auth.uid == null) return;
-
-    setState(() => selectedAlertaId = 'loading');
-
-    try {
-      
-      await alertController.asignarAmbulanciaAAlerta(
-        selectedAlerta!.id,
-        auth.uid!,
-      );
-
-      await ambCtrl.setEstado(auth.uid!, 'enRuta');
-
-      
-      final myLocation = await mapController.getMyLocation();
-      if (myLocation != null) {
-        await mapController.createRoute(myLocation, selectedAlerta!.position);
-      }
-
-      if (!mounted) return;
-
-      setState(() {
-        selectedAlertaId = selectedAlerta!.id;
-        _remainingSeconds = 30; 
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.directions_car, color: Colors.white),
-              SizedBox(width: 12),
-              Text('En camino hacia la alerta...'),
-            ],
-          ),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      
-      _startCountdown();
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        selectedAlerta = null;
-        selectedAlertaId = null;
-        _remainingSeconds = 0;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
-
-  
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      setState(() {
-        _remainingSeconds--;
-      });
-
-      
-      if (_remainingSeconds <= 0) {
-        timer.cancel();
-        _finalizarAtencion();
-      }
-    });
-  }
-
-  
-  Future<void> _finalizarAtencion() async {
-    if (selectedAlertaId == null || selectedAlertaId == 'loading') return;
-
-    final auth = context.read<AuthController>();
-    final ambCtrl = context.read<AmbulanciaController>();
-
-    await alertController.marcarComoAtendida(selectedAlertaId!);
-
-    if (auth.uid != null) {
-      await ambCtrl.setEstado(auth.uid!, 'habilitada');
-    }
-
-    mapController.clearRoute();
-
-    if (!mounted) return;
+    if (atencionController.lastError != null) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -170,24 +60,58 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
         duration: Duration(seconds: 3),
       ),
     );
-
-    setState(() {
-      selectedAlerta = null;
-      selectedAlertaId = null;
-      _remainingSeconds = 0;
-    });
   }
 
-  
-  Future<void> _finalizarManualmente() async {
-    if (selectedAlertaId == null || selectedAlertaId == 'loading') return;
+  void _onMapCreated(GoogleMapController controller) {
+    mapController.setMapController(controller);
+  }
 
+  void _onAlertaTapped(AlertaModel alerta) {
+    setState(() => selectedAlerta = alerta);
+    mapController.moveCamera(alerta.position, zoom: 15);
+  }
+
+  Future<void> _atenderAlerta() async {
+    if (selectedAlerta == null) return;
+    final auth = context.read<AuthController>();
+    if (auth.uid == null) return;
+
+    final alerta = selectedAlerta!;
+    await atencionController.atenderAlerta(alerta, auth.uid!);
+
+    if (!mounted) return;
+
+    if (atencionController.lastError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${atencionController.lastError}')),
+      );
+      setState(() => selectedAlerta = null);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.directions_car, color: Colors.white),
+            SizedBox(width: 12),
+            Text('En camino hacia la alerta...'),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _finalizarManualmente() async {
+    final remaining = atencionController.remainingSeconds;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Finalizar atención'),
         content: Text(
-            '¿Deseas finalizar la atención antes de tiempo?\n\nTiempo restante: $_remainingSeconds segundos'),
+            '¿Deseas finalizar la atención antes de tiempo?\n\nTiempo restante: $remaining segundos'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -203,39 +127,30 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     );
 
     if (confirm != true) return;
+    if (!context.mounted) return;
 
-    _countdownTimer?.cancel();
-    await _finalizarAtencion();
+    await atencionController.finalizarManualmente();
   }
 
   void _cancelarSeleccion() {
-    setState(() {
-      selectedAlerta = null;
-      selectedAlertaId = null;
-      _remainingSeconds = 0;
-    });
+    setState(() => selectedAlerta = null);
   }
 
   void _cancelarRuta() {
-    _countdownTimer?.cancel();
-    mapController.clearRoute();
-    setState(() {
-      selectedAlerta = null;
-      selectedAlertaId = null;
-      _remainingSeconds = 0;
-    });
+    atencionController.cancelarRuta();
+    setState(() => selectedAlerta = null);
   }
 
   @override
   Widget build(BuildContext context) {
     final alertas = context.watch<AlertController>().getAlertasActivas();
     final polylines = context.watch<MapController>().polylines;
+    final atencion = context.watch<AtencionAlertaController>();
 
-    
+    // Marcadores: alertas activas Y en proceso
     final Set<Marker> markers = {};
 
     for (var a in alertas) {
-      // Mostrar todas las alertas ACTIVAS
       if (a.estado == AlertState.activa) {
         markers.add(Marker(
           markerId: MarkerId(a.id),
@@ -247,9 +162,8 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
           ),
           onTap: () => _onAlertaTapped(a),
         ));
-      }
-      
-      else if (a.estado == AlertState.enProceso && a.id == selectedAlertaId) {
+      } else if (a.estado == AlertState.enProceso &&
+          a.id == atencion.selectedAlertaId) {
         markers.add(Marker(
           markerId: MarkerId(a.id),
           position: a.position,
@@ -264,9 +178,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
       appBar: AppBar(
         title: const Text('Mapa de Alertas'),
         actions: [
-          if (selectedAlertaId != null &&
-              selectedAlertaId != 'loading' &&
-              _remainingSeconds > 0)
+          if (atencion.isEnRuta && atencion.remainingSeconds > 0)
             IconButton(
               icon: const Icon(Icons.check_circle),
               tooltip: 'Finalizar atención',
@@ -292,8 +204,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
             },
           ),
 
-          
-          if (selectedAlerta != null && selectedAlertaId == null)
+          if (selectedAlerta != null && atencion.selectedAlertaId == null)
             Positioned(
               bottom: 20,
               left: 20,
@@ -370,10 +281,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          
-          if (selectedAlertaId != null &&
-              selectedAlertaId != 'loading' &&
-              _remainingSeconds > 0)
+          if (atencion.isEnRuta && atencion.remainingSeconds > 0)
             Positioned(
               top: 16,
               left: 16,
@@ -430,7 +338,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      
+                      // TEMPORIZADOR VISUAL
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -443,7 +351,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                             const Icon(Icons.timer, color: Colors.orange),
                             const SizedBox(width: 8),
                             Text(
-                              'Tiempo estimado de llegada: $_remainingSeconds seg',
+                              'Tiempo estimado de llegada: ${atencion.remainingSeconds} seg',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -453,11 +361,13 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      
+                      // BARRA DE PROGRESO
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: _remainingSeconds / 30,
+                          value: atencion.remainingSeconds /
+                              AtencionAlertaController
+                                  .duracionSimulacionSegundos,
                           backgroundColor: Colors.grey.shade300,
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             Colors.orange,
@@ -471,8 +381,8 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          
-          if (selectedAlertaId == 'loading')
+          // LOADING
+          if (atencion.isLoading)
             Container(
               color: Colors.black45,
               child: const Center(
@@ -492,8 +402,7 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          
-          if (alertas.isEmpty && selectedAlertaId == null)
+          if (alertas.isEmpty && !atencion.isEnRuta && !atencion.isLoading)
             const Positioned(
               top: 16,
               left: 16,

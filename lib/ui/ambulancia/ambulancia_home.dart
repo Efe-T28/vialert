@@ -43,7 +43,6 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
             ),
             const SizedBox(height: 24),
 
-            // ✅ CONDUCTOR
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -83,7 +82,6 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
             ),
             const SizedBox(height: 16),
 
-            // ✅ PARAMÉDICO
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -123,7 +121,6 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
             ),
             const Spacer(),
 
-            // ✅ BOTÓN CON VALIDACIÓN
             _loading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton.icon(
@@ -133,64 +130,74 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
                         ? () async {
                             setState(() => _loading = true);
 
-                            // Reservar personal
-                            final reservedC = await personal.reservarConductor(
-                                selectedConductor!, myUid);
-                            final reservedP = await personal.reservarParamedico(
-                                selectedParamedico!, myUid);
+                            try {
+                              final reservedC =
+                                  await personal.reservarConductor(
+                                      selectedConductor!, myUid);
+                              final reservedP =
+                                  await personal.reservarParamedico(
+                                      selectedParamedico!, myUid);
 
-                            if (!reservedC || !reservedP) {
-                              if (reservedC) {
-                                await personal
-                                    .liberarConductor(selectedConductor!);
+                              if (!reservedC || !reservedP) {
+                                if (reservedC) {
+                                  await personal
+                                      .liberarConductor(selectedConductor!);
+                                }
+                                if (reservedP) {
+                                  await personal
+                                      .liberarParamedico(selectedParamedico!);
+                                }
+                                setState(() => _loading = false);
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text("Error reservando personal.")),
+                                );
+                                return;
                               }
-                              if (reservedP) {
-                                await personal
-                                    .liberarParamedico(selectedParamedico!);
-                              }
+
+                              final ok = await ambCtrl.asignarPersonalAtomico(
+                                ambulanciaId: myUid,
+                                conductorId: selectedConductor,
+                                paramedicoId: selectedParamedico,
+                              );
+
                               setState(() => _loading = false);
 
-                              if (!mounted) return;
+                              if (!ok) {
+                                await personal
+                                    .liberarConductor(selectedConductor!);
+                                await personal
+                                    .liberarParamedico(selectedParamedico!);
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text("Error asignando personal.")),
+                                );
+                                return;
+                              }
+
+                              if (!context.mounted) return;
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const AmbulanciaMapaHome(),
+                                ),
+                              );
+                            } catch (e) {
+                              setState(() => _loading = false);
+                              if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content:
-                                        Text("Error reservando personal.")),
+                                  content: Text(
+                                      "No se pudo completar la operación. Verifica tu conexión e inténtalo de nuevo."),
+                                ),
                               );
-                              return;
                             }
-
-                            // Asignar a ambulancia
-                            final ok = await ambCtrl.asignarPersonalAtomico(
-                              ambulanciaId: myUid,
-                              conductorId: selectedConductor,
-                              paramedicoId: selectedParamedico,
-                            );
-
-                            setState(() => _loading = false);
-
-                            if (!ok) {
-                              await personal
-                                  .liberarConductor(selectedConductor!);
-                              await personal
-                                  .liberarParamedico(selectedParamedico!);
-
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text("Error asignando personal.")),
-                              );
-                              return;
-                            }
-
-                            // ✅ NAVEGAR CON pushReplacement PARA EVITAR VOLVER ATRÁS
-                            if (!mounted) return;
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AmbulanciaMapaHome(),
-                              ),
-                            );
                           }
                         : null,
                     icon: const Icon(Icons.check_circle),
