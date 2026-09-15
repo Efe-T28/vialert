@@ -15,6 +15,7 @@ marcarla como resuelta.
 - [Funcionalidades del MVP](#funcionalidades-del-mvp)
 - [Roles de usuario](#roles-de-usuario)
 - [Arquitectura del proyecto](#arquitectura-del-proyecto)
+- [Refactorizacion SOLID] (#refactorizacion-solid)
 - [Stack técnico](#stack-técnico)
 - [Requisitos previos](#requisitos-previos)
 - [Configuración del proyecto](#configuración-del-proyecto)
@@ -60,6 +61,9 @@ UI (widgets/screens)
 Controllers (ChangeNotifier / estado de la app)
    │  delega operaciones de datos
    ▼
+Domain (contratos: repositorios, resolvers de rol)
+   │  implementados por
+   ▼
 Services (Auth, Firestore, ubicación, rutas)
    │
    ▼
@@ -79,10 +83,56 @@ Firebase (Auth + Firestore) / Google Maps / Geolocator
   servicios; no acceden a Firebase directamente.
 - **`ui/`** — pantallas agrupadas por rol (`admin/`, `ambulancia/`,
   `usuario/`, `auth/`), más `app.dart` con el enrutamiento por rol.
+- **`domain/`** — contratos e implementaciones que desacoplan a los
+  controllers de Firebase y de detalles concretos:
+  - `PersonalRepository` (`reservar` / `liberar`), implementado por
+    `ConductoresRepository` y `ParamedicosRepository`.
+  - `RoleResolver` (`resolve`), implementado por
+    `RolesCollectionResolver`, `UsuariosCollectionResolver`,
+    `AmbulanciasCollectionResolver` y `AdminsCollectionResolver`.
 
 La asignación de personal (conductor/paramédico) a una ambulancia usa
 transacciones de Firestore (`reservarPersonal` en `FirestoreService`) para
 evitar que dos alertas reserven al mismo conductor simultáneamente.
+
+## refactorizacion-solid
+
+A partir del MVP inicial se refactorizó el código para reducir la duplicación entre conductores/paramédicos, sacar lógica de negocio de la UI y desacoplar los controllers de Firebase. El comportamiento funcional de la app tuvo cambiós solo se reorganizo el código.
+
+### S — Responsabilidad única (SRP) Diagnostico 3,5
+
+- La pantalla `ambulancia_mapa_screen.dart` ya no maneja `Timer`,
+  transacciones ni orquesta tres controllers a la vez. Esa lógica se
+  extrajo al nuevo `AtencionAlertaController`, y la pantalla quedó
+  limitada a construir la UI y escuchar sus cambios de estado.
+
+- Antes `FirestoreService` los métodos `reservarPersonal` y `liberarPersonal` incluyen lógica de negocio referente a disponibilidad del personal.
+
+- Ahora, se definio la abstracción `PersonalRepository`que se implenta en `ConductoresRepository` y `ParamedicosRepository` cada una encapsulando su propia colección de Firestore y su transacción de reserva y liberación, `PersonalController` paso a depender de la abstracción PersonalRepository en lugar de Firestore directamente.
+
+
+### O — Abierto/cerrado (OCP) Diagnostico 2
+- Antes, agregar una nueva fuente de rol (por ejemplo, una colección
+  `voluntarios`) implicaba modificar el método `getUserRole` de
+  `AuthService`, añadiendo un nuevo `if`.
+- Ahora `AuthService` recibe una `List<RoleResolver>` y las recorre en
+  orden. Agregar un nuevo tipo de rol solo requiere **crear una nueva
+  clase** que implemente `RoleResolver`, sin tocar código existente.
+
+### D — Inversión de dependencias (DIP) Diagnostico 1,4,6
+- Antes, `MapController` instanciaba directamente `MapsService()` y
+  `LocationService()`, dependiendo directamente de las clases.
+   - Ahora `MapController` recibe `IMapsService` e `ILocationService` por
+  constructor, y `AuthService` recibe `FirebaseAuth`,
+  `FirebaseFirestore` y la lista de `RoleResolver` por constructor lo que
+  además habilita pruebas unitarias con dobles de prueba.
+
+   `AuthService` instanciaba directamente `FirebaseAuth.instance` y `FirebaseFirestore.instance`  Impidiendo hacer pruebas unitarias a AuthServices sin conectarse a Firebase, además,  en caso de cambiar de proveedor de servicio `AuthService` debería reescribirse 
+
+- Antes `AmbulanciaController` contruia `FirebaseFirestore.instance` en el método `asignarPersonalAtomico` y  `liberarpersonalYResetAmbulancia` directamente esa     responsabilidad pasó a `FirestoreService`, que es quien conoce el modelo de datos.
+  Ahora `AmbulanciaController` recibe una abstracción de repositorio en vez de una implementación concreta evitando que un cambio de base de datos a futuro oblique a modificar el controlador
+
+
 
 ## Stack técnico
 
