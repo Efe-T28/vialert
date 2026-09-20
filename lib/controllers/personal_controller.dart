@@ -4,8 +4,7 @@ import '../services/firestore_service.dart';
 import '../models/conductor_model.dart';
 import '../models/paramedico_model.dart';
 import '../domain/personal_repository.dart';
-import '../domain/factories/tipo_personal.dart';
-import '../domain/factories/personal_factory_provider.dart';
+import '../domain/factories/personal_factory.dart';
 
 class PersonalController extends ChangeNotifier {
   final FirestoreService _fs;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/personal_controller.dart';
-import '../../domain/factories/tipo_personal.dart';
+import '../../domain/factories/personal_factory.dart';
 
 class CrearConductorScreen extends StatefulWidget {
   const CrearConductorScreen({super.key});

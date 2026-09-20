@@ -1,1 +1,0 @@
-enum TipoPersonal { conductor, paramedico }
