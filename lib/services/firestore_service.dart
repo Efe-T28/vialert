@@ -1,4 +1,3 @@
-// lib/services/firestore_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/alerta_model.dart';
@@ -7,14 +6,6 @@ import '../models/conductor_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/usuario_model.dart';
 
-/// Encapsula operaciones de Firestore.
-/// Estructura recomendada:
-/// - usuarios/{uid}
-/// - admins/{uid}
-/// - ambulancias/{uid}
-/// - alertas/{id}
-/// - personal/conductores/items/{id}
-/// - personal/paramedicos/items/{id}
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -134,8 +125,6 @@ class FirestoreService {
     try {
       return await _db.runTransaction<bool>((tx) async {
         final snap = await tx.get(ref);
-        // 'false' aquí es una respuesta de negocio válida: el personal
-        // no existe o ya está ocupado. No es un error técnico.
         if (!snap.exists) return false;
         final data = snap.data() as Map<String, dynamic>;
         final estado = data['estado'] as String? ?? 'disponible';

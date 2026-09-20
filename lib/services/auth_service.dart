@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../domain/role_resolver.dart';
 import '../domain/resolvers/roles_collection_resolver.dart';
 import '../domain/resolvers/usuarios_collection_resolver.dart';
@@ -26,10 +25,10 @@ class AuthService {
               AdminsCollectionResolver(),
             ];
 
-  /// Stream de cambios en autenticación
+
   Stream<User?> authStateChanges() => _auth.authStateChanges();
 
-  /// Iniciar sesión
+
   Future<User?> login(String email, String password) async {
     final cred = await _auth.signInWithEmailAndPassword(
       email: email,
@@ -38,7 +37,7 @@ class AuthService {
     return cred.user;
   }
 
-  /// Registrar usuario normal
+
   Future<User?> registerUsuarioNormal({
     required String nombre,
     required String apellido,
@@ -87,7 +86,7 @@ class AuthService {
     required String codigoInterno,
     required String entidadId,
   }) async {
-    // Admin actual
+
     final adminUser = _auth.currentUser;
     if (adminUser == null) {
       throw Exception("No hay admin autenticado");
@@ -125,7 +124,6 @@ class AuthService {
     );
   }
 
-  /// Cerrar sesión
   Future<void> logout() async {
     await _auth.signOut();
   }

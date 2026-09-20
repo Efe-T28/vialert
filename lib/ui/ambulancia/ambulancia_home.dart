@@ -24,7 +24,6 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
     final auth = context.read<AuthController>();
     final myUid = auth.uid;
 
-    // ✅ VALIDACIÓN: Si no hay personal disponible, mostrar mensaje
     final conductoresDisponibles = personal.conductoresDisponibles;
     final paramedicosDisponibles = personal.paramedicosDisponibles;
 
