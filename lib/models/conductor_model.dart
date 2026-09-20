@@ -1,23 +1,18 @@
 // lib/models/conductor_model.dart
-class ConductorModel {
-  final String id;
-  final String nombre;
-  final String apellido;
-  final String cedula;
-  final String entidadId;
-  final String estado; // 'disponible' | 'ocupado'
-  final String? ambulanciaId; // id ambulancia si está ocupado
+import 'personal_model.dart';
 
+class ConductorModel extends PersonalModel {
   ConductorModel({
-    required this.id,
-    required this.nombre,
-    required this.apellido,
-    required this.cedula,
-    required this.entidadId,
-    this.estado = 'disponible',
-    this.ambulanciaId,
+    required super.id,
+    required super.nombre,
+    required super.apellido,
+    required super.cedula,
+    required super.entidadId,
+    super.estado,
+    super.ambulanciaId,
   });
 
+  @override
   Map<String, dynamic> toMap() => {
         'nombre': nombre,
         'apellido': apellido,

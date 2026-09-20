@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/personal_controller.dart';
+import '../../domain/factories/tipo_personal.dart';
 
 class CrearConductorScreen extends StatefulWidget {
   const CrearConductorScreen({super.key});
@@ -40,11 +41,13 @@ class _CrearConductorScreenState extends State<CrearConductorScreen> {
               : ElevatedButton(
                   onPressed: () async {
                     setState(() => loading = true);
-                    await ctrl.crearConductor(
-                        nombre: nombre.text.trim(),
-                        apellido: apellido.text.trim(),
-                        cedula: cedula.text.trim(),
-                        entidadId: entidad.text.trim());
+                    await ctrl.crearPersonal(
+                      TipoPersonal.conductor,
+                      nombre: nombre.text.trim(),
+                      apellido: apellido.text.trim(),
+                      cedula: cedula.text.trim(),
+                      entidadId: entidad.text.trim(),
+                    );
                     setState(() => loading = false);
                     Navigator.pop(context);
                   },

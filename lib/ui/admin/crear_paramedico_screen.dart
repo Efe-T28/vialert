@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/personal_controller.dart';
+import '../../domain/factories/tipo_personal.dart';
 
 class CrearParamedicoScreen extends StatefulWidget {
   const CrearParamedicoScreen({super.key});
@@ -44,7 +45,8 @@ class _CrearParamedicoScreenState extends State<CrearParamedicoScreen> {
               : ElevatedButton(
                   onPressed: () async {
                     setState(() => loading = true);
-                    await ctrl.crearParamedico(
+                    await ctrl.crearPersonal(
+                        TipoPersonal.paramedico,
                         nombre: nombre.text.trim(),
                         apellido: apellido.text.trim(),
                         cedula: cedula.text.trim(),

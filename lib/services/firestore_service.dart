@@ -5,6 +5,7 @@ import '../models/ambulancia_model.dart';
 import '../models/conductor_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/usuario_model.dart';
+import '../models/personal_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -72,6 +73,11 @@ class FirestoreService {
 
   Future<void> crearParamedico(ParamedicoModel p) async {
     await _paramedicosCol().doc(p.id).set(p.toMap());
+  }
+
+  Future<void> guardarPersonal(PersonalModel p) async {
+    final col = p is ConductorModel ? _conductoresCol() : _paramedicosCol();
+    await col.doc(p.id).set(p.toMap());
   }
 
   Future<ConductorModel?> getConductorById(String id) async {
