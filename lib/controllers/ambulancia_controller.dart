@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../services/firestore_service.dart';
+import '../services/i_database_service.dart';
 import '../models/ambulancia_model.dart';
 
 class AmbulanciaController extends ChangeNotifier {
-  final FirestoreService _fs;
+  final IDatabaseService _fs;
   final List<AmbulanciaModel> ambulancias = [];
 
   AmbulanciaController(this._fs) {

@@ -13,6 +13,8 @@ import 'controllers/atencion_alerta_controller.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/location_service.dart';
+import 'services/i_auth_service.dart';
+import 'services/i_database_service.dart';
 import 'domain/repositories/conductores_repository.dart';
 import 'domain/repositories/paramedicos_repository.dart';
 import 'ui/app.dart';
@@ -24,29 +26,29 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        Provider<AuthService>(
+        Provider<IAuthService>(
             create: (_) => AuthService(
                   auth: FirebaseAuth.instance,
                   db: FirebaseFirestore.instance,
                 )),
-        Provider<FirestoreService>(create: (_) => FirestoreService()),
+        Provider<IDatabaseService>(create: (_) => FirestoreService()),
         Provider<LocationService>(create: (_) => LocationService()),
         ChangeNotifierProvider<AuthController>(
             create: (ctx) => AuthController(
-                  authService: ctx.read<AuthService>(),
-                  firestoreService: ctx.read<FirestoreService>(),
+                  authService: ctx.read<IAuthService>(),
+                  firestoreService: ctx.read<IDatabaseService>(),
                 )),
         ChangeNotifierProvider<AlertController>(
-            create: (ctx) => AlertController(ctx.read<FirestoreService>())),
+            create: (ctx) => AlertController(ctx.read<IDatabaseService>())),
         ChangeNotifierProvider<PersonalController>(
             create: (ctx) => PersonalController(
-                  ctx.read<FirestoreService>(),
+                  ctx.read<IDatabaseService>(),
                   ConductoresRepository(FirebaseFirestore.instance),
                   ParamedicosRepository(FirebaseFirestore.instance),
                 )),
         ChangeNotifierProvider<AmbulanciaController>(
             create: (ctx) =>
-                AmbulanciaController(ctx.read<FirestoreService>())),
+                AmbulanciaController(ctx.read<IDatabaseService>())),
         ChangeNotifierProvider<MapController>(
             create: (ctx) =>
                 MapController(locationService: ctx.read<LocationService>())),

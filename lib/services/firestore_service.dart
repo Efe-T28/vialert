@@ -6,11 +6,12 @@ import '../models/conductor_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/usuario_model.dart';
 import '../models/personal_model.dart';
+import './i_database_service.dart';
 
-class FirestoreService {
+class FirestoreService implements IDatabaseService{
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-
+  //Alertas
   Stream<List<AlertaModel>> streamAlertas() {
     return _db.collection('alertas').snapshots().map((snap) => snap.docs
         .map((d) => AlertaModel.fromMap(d.id, d.data()))
@@ -31,6 +32,9 @@ class FirestoreService {
     return AlertaModel.fromMap(s.id, s.data()!);
   }
 
+
+
+  //Usuarios
   Future<UsuarioModel?> getUsuarioByUid(String uid) async {
     final snap = await _db.collection('usuarios').doc(uid).get();
     if (!snap.exists) return null;
@@ -41,6 +45,8 @@ class FirestoreService {
     await _db.collection('usuarios').doc(uid).set(u.toMap());
   }
 
+
+  //Personal
   CollectionReference _conductoresCol() =>
       _db.collection('personal').doc('conductores').collection('items');
 
@@ -65,14 +71,6 @@ class FirestoreService {
             .map((d) =>
                 ParamedicoModel.fromMap(d.id, d.data() as Map<String, dynamic>))
             .toList());
-  }
-
-  Future<void> crearConductor(ConductorModel c) async {
-    await _conductoresCol().doc(c.id).set(c.toMap());
-  }
-
-  Future<void> crearParamedico(ParamedicoModel p) async {
-    await _paramedicosCol().doc(p.id).set(p.toMap());
   }
 
   Future<void> guardarPersonal(PersonalModel p) async {
@@ -101,6 +99,9 @@ class FirestoreService {
     await _paramedicosCol().doc(id).update(data);
   }
 
+
+
+  //Ambulancias
   Stream<List<AmbulanciaModel>> streamAmbulancias() {
     return _db.collection('ambulancias').snapshots().map((snap) => snap.docs
         .map((d) => AmbulanciaModel.fromMap(d.id, d.data()))
@@ -119,42 +120,6 @@ class FirestoreService {
 
   Future<void> updateAmbulancia(String id, Map<String, dynamic> data) async {
     await _db.collection('ambulancias').doc(id).update(data);
-  }
-
-  Future<bool> reservarPersonal({
-    required String tipo, // 'conductor' | 'paramedico'
-    required String personalId,
-    required String ambulanciaId,
-  }) async {
-    final col = tipo == 'conductor' ? _conductoresCol() : _paramedicosCol();
-    final ref = col.doc(personalId);
-    try {
-      return await _db.runTransaction<bool>((tx) async {
-        final snap = await tx.get(ref);
-        if (!snap.exists) return false;
-        final data = snap.data() as Map<String, dynamic>;
-        final estado = data['estado'] as String? ?? 'disponible';
-        if (estado != 'disponible') return false;
-        tx.update(ref, {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
-        return true;
-      });
-    } catch (_) {
-      rethrow;
-    }
-  }
-
-  Future<bool> liberarPersonal({
-    required String tipo,
-    required String personalId,
-  }) async {
-    final col = tipo == 'conductor' ? _conductoresCol() : _paramedicosCol();
-    final ref = col.doc(personalId);
-    try {
-      await ref.update({'estado': 'disponible', 'ambulanciaId': null});
-      return true;
-    } catch (_) {
-      rethrow;
-    }
   }
 
   Future<bool> asignarPersonalAAmbulancia({

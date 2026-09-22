@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../services/auth_service.dart';
-import '../services/firestore_service.dart';
+import '../services/i_auth_service.dart';
+import '../services/i_database_service.dart';
 import '../models/usuario_model.dart';
 
 class AuthController extends ChangeNotifier {
-  final AuthService authService;
-  final FirestoreService firestoreService;
+  final IAuthService authService;
+  final IDatabaseService firestoreService;
 
   User? firebaseUser;
   UsuarioModel? usuario;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
-import '../../services/auth_service.dart';
+import '../../services/i_auth_service.dart';
 
 class CrearAmbulanciaScreen extends StatefulWidget {
   const CrearAmbulanciaScreen({super.key});
@@ -22,7 +22,7 @@ class _CrearAmbulanciaScreenState extends State<CrearAmbulanciaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.read<AuthService>();
+    final authService = context.read<IAuthService>();
     final authController = context.read<AuthController>();
 
     final adminEmail = authController.firebaseUser!.email!;

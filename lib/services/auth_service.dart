@@ -5,8 +5,9 @@ import '../domain/resolvers/roles_collection_resolver.dart';
 import '../domain/resolvers/usuarios_collection_resolver.dart';
 import '../domain/resolvers/ambulancias_collection_resolver.dart';
 import '../domain/resolvers/admins_collection_resolver.dart';
+import './i_auth_service.dart';
 
-class AuthService {
+class AuthService implements IAuthService {
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
   final List<RoleResolver> _roleResolvers;

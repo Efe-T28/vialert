@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../services/firestore_service.dart';
+import '../services/i_database_service.dart';
 import '../models/alerta_model.dart';
 
 class AlertController extends ChangeNotifier {
-  final FirestoreService _fs;
+  final IDatabaseService _fs;
   final List<AlertaModel> alerts = [];
   final _uuid = const Uuid();
 

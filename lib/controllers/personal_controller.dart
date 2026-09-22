@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import '../services/firestore_service.dart';
+import '../services/i_database_service.dart';
 import '../models/conductor_model.dart';
 import '../models/paramedico_model.dart';
 import '../domain/personal_repository.dart';
 import '../domain/factories/personal_factory.dart';
 
 class PersonalController extends ChangeNotifier {
-  final FirestoreService _fs;
+  final IDatabaseService _fs;
   final PersonalRepository _conductoresRepo;
   final PersonalRepository _paramedicosRepo;
   final List<ConductorModel> conductoresDisponibles = [];

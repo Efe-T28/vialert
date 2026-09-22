@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/ambulancia_controller.dart';
-import '../../services/firestore_service.dart';
+import '../../services/i_database_service.dart';
 import '../../models/ambulancia_model.dart';
 import '../../models/conductor_model.dart';
 import '../../models/paramedico_model.dart';
@@ -28,7 +28,7 @@ class _AmbulanciaPerfilScreenState extends State<AmbulanciaPerfilScreen> {
 
   Future<void> _loadData() async {
     final auth = context.read<AuthController>();
-    final fs = context.read<FirestoreService>();
+    final fs = context.read<IDatabaseService>();
 
     if (auth.uid == null) return;
 
