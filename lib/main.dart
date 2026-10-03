@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vialert/firebase_options.dart';
 import 'controllers/auth_controller.dart';
@@ -10,11 +9,13 @@ import 'controllers/personal_controller.dart';
 import 'controllers/ambulancia_controller.dart';
 import 'controllers/map_controller.dart';
 import 'controllers/atencion_alerta_controller.dart';
-import 'services/auth_service.dart';
-import 'services/firestore_service.dart';
-import 'services/location_service.dart';
 import 'services/i_auth_service.dart';
 import 'services/i_database_service.dart';
+import 'services/i_location_service.dart';
+import 'services/i_maps_service.dart';
+import 'services/factories/app_services_factory.dart';
+import 'services/factories/firebase_services_factory.dart';
+// import 'services/factories/mock_services_factory.dart';
 import 'domain/repositories/conductores_repository.dart';
 import 'domain/repositories/paramedicos_repository.dart';
 import 'ui/app.dart';
@@ -23,16 +24,19 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Única línea que decide la familia de servicios de toda la app.
+  final AppServicesFactory servicios = FirebaseServicesFactory();
+  // final AppServicesFactory servicios = MockServicesFactory();
+
   runApp(
     MultiProvider(
       providers: [
-        Provider<IAuthService>(
-            create: (_) => AuthService(
-                  auth: FirebaseAuth.instance,
-                  db: FirebaseFirestore.instance,
-                )),
-        Provider<IDatabaseService>(create: (_) => FirestoreService()),
-        Provider<LocationService>(create: (_) => LocationService()),
+        Provider<IAuthService>(create: (_) => servicios.createAuthService()),
+        Provider<IDatabaseService>(
+            create: (_) => servicios.createDatabaseService()),
+        Provider<ILocationService>(
+            create: (_) => servicios.createLocationService()),
+        Provider<IMapsService>(create: (_) => servicios.createMapsService()),
         ChangeNotifierProvider<AuthController>(
             create: (ctx) => AuthController(
                   authService: ctx.read<IAuthService>(),
@@ -50,8 +54,10 @@ void main() async {
             create: (ctx) =>
                 AmbulanciaController(ctx.read<IDatabaseService>())),
         ChangeNotifierProvider<MapController>(
-            create: (ctx) =>
-                MapController(locationService: ctx.read<LocationService>())),
+            create: (ctx) => MapController(
+                  mapsService: ctx.read<IMapsService>(),
+                  locationService: ctx.read<ILocationService>(),
+                )),
         ChangeNotifierProvider<AtencionAlertaController>(
             create: (ctx) => AtencionAlertaController(
                   ctx.read<AlertController>(),

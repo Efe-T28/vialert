@@ -33,8 +33,7 @@ class PersonalController extends ChangeNotifier {
     });
   }
 
-  /// Crea un conductor o paramédico usando la factory correspondiente.
-  /// Reemplaza a crearConductor() y crearParamedico().
+
   Future<void> crearPersonal(
     TipoPersonal tipo, {
     required String nombre,

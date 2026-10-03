@@ -1,8 +1,6 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/i_maps_service.dart';
 import '../services/i_location_service.dart';
-import '../services/maps_service.dart';
-import '../services/location_service.dart';
 import 'package:flutter/material.dart';
 
 class MapController extends ChangeNotifier {
@@ -12,11 +10,11 @@ class MapController extends ChangeNotifier {
   Set<Polyline> polylines = {};
   LatLng? lastTappedPosition;
 
-  MapController({
-    IMapsService? mapsService,
-    ILocationService? locationService,
-  })  : _mapsService = mapsService ?? MapsService(),
-        _locationService = locationService ?? LocationService();
+    MapController({
+    required IMapsService mapsService,
+    required ILocationService locationService,
+  })  : _mapsService = mapsService,
+        _locationService = locationService;
 
   void setMapController(GoogleMapController c) {
     _googleController = c;
