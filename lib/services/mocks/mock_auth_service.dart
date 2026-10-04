@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import '../i_auth_service.dart';
-
+import '../../domain/builders/i_ambulancia_builder.dart';
 
 class MockAuthService implements IAuthService {
   @override
@@ -24,15 +24,14 @@ class MockAuthService implements IAuthService {
   }
 
   @override
-  Future<void> registerAmbulanciaPreservandoAdmin({
-    required String adminEmail,
-    required String adminPassword,
+  Future<void> registerAmbulancia({
     required String email,
     required String password,
-    required String placa,
-    required String codigoInterno,
-    required String entidadId,
-  }) async {}
+    required IAmbulanciaBuilder datos,
+  }) async {
+    datos.email(email);
+    datos.build(id: 'mock-pendiente'); // valida igual que el servicio real
+  }
 
   @override
   Future<void> logout() async {}

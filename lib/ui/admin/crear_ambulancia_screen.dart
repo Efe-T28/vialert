@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../controllers/auth_controller.dart';
+import '../../domain/builders/ambulancia_builder.dart';
+import '../../domain/builders/ambulancia_director.dart';
+import '../../domain/builders/i_ambulancia_builder.dart';
 import '../../services/i_auth_service.dart';
 
 class CrearAmbulanciaScreen extends StatefulWidget {
@@ -16,17 +18,53 @@ class _CrearAmbulanciaScreenState extends State<CrearAmbulanciaScreen> {
   final entidad = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
-  final adminPassword = TextEditingController();
 
   bool loading = false;
 
   @override
-  Widget build(BuildContext context) {
+  void dispose() {
+    placa.dispose();
+    codigo.dispose();
+    entidad.dispose();
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _crear() async {
     final authService = context.read<IAuthService>();
-    final authController = context.read<AuthController>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
-    final adminEmail = authController.firebaseUser!.email!;
+    setState(() => loading = true);
+    try {
+      // Director + Builder arman los datos de la ambulancia.
+      final IAmbulanciaBuilder builder = AmbulanciaBuilder();
+      AmbulanciaDirector(builder).construirEstandar(
+        placa: placa.text,
+        codigoInterno: codigo.text,
+        entidadId: entidad.text,
+      );
 
+      await authService.registerAmbulancia(
+        email: email.text.trim(),
+        password: password.text.trim(),
+        datos: builder,
+      );
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Ambulancia creada correctamente')),
+      );
+      if (mounted) navigator.pop();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('ERROR: $e')));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Crear Ambulancia')),
       body: Padding(
@@ -52,52 +90,10 @@ class _CrearAmbulanciaScreenState extends State<CrearAmbulanciaScreen> {
                     const InputDecoration(labelText: 'Password Ambulancia'),
                 obscureText: true),
             const SizedBox(height: 24),
-            TextField(
-                controller: adminPassword,
-                decoration:
-                    const InputDecoration(labelText: 'Tu contraseña de admin'),
-                obscureText: true),
-            const SizedBox(height: 24),
             loading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton(
-                    onPressed: () async {
-                      if (adminPassword.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text(
-                                  "Debes ingresar tu contraseña de admin")),
-                        );
-                        return;
-                      }
-
-                      setState(() => loading = true);
-
-                      try {
-                        await authService.registerAmbulanciaPreservandoAdmin(
-                          adminEmail: adminEmail,
-                          adminPassword: adminPassword.text.trim(),
-                          email: email.text.trim(),
-                          password: password.text.trim(),
-                          placa: placa.text.trim(),
-                          codigoInterno: codigo.text.trim(),
-                          entidadId: entidad.text.trim(),
-                        );
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text("Ambulancia creada correctamente")),
-                        );
-
-                        Navigator.pop(context);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("ERROR: $e")),
-                        );
-                      } finally {
-                        setState(() => loading = false);
-                      }
-                    },
+                    onPressed: _crear,
                     child: const Text('Crear Ambulancia'),
                   ),
           ],

@@ -1,6 +1,5 @@
-// Nota: se mantiene el tipo `User` de firebase_auth por ahora.
-// Esto es deuda técnica intencional para la fase de mejoras.
 import 'package:firebase_auth/firebase_auth.dart';
+import '../domain/builders/i_ambulancia_builder.dart';
 
 abstract class IAuthService {
   Stream<User?> authStateChanges();
@@ -16,14 +15,11 @@ abstract class IAuthService {
     required String password,
   });
 
-  Future<void> registerAmbulanciaPreservandoAdmin({
-    required String adminEmail,
-    required String adminPassword,
+  /// Crea la cuenta de una ambulancia sin cerrar la sesión del admin.
+  Future<void> registerAmbulancia({
     required String email,
     required String password,
-    required String placa,
-    required String codigoInterno,
-    required String entidadId,
+    required IAmbulanciaBuilder datos,
   });
 
   Future<void> logout();
