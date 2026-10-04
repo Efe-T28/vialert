@@ -29,4 +29,22 @@ class AmbulanciaDirector {
       ..entidad(entidadId)
       ..estadoOperativo('inactiva');
   }
+
+  void construirPlantilla({
+    required String entidadId,
+    String estadoOperativo = 'habilitada',
+  }) {
+    _builder
+      ..entidad(entidadId)
+      ..estadoOperativo(estadoOperativo);
+  }
+
+  void completarUnidad({
+    required String placa,
+    required String codigoInterno,
+  }) {
+    _builder
+      ..placa(placa)
+      ..codigoInterno(codigoInterno);
+  }
 }

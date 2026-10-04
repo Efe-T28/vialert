@@ -41,6 +41,14 @@ class AmbulanciaBuilder implements IAmbulanciaBuilder {
   }
 
   @override
+  AmbulanciaBuilder clone() => AmbulanciaBuilder()
+    .._placa = _placa
+    .._codigoInterno = _codigoInterno
+    .._entidadId = _entidadId
+    .._email = _email
+    .._estadoOperativo = _estadoOperativo;
+
+  @override
   AmbulanciaModel build({required String id}) {
     final placa = _placa ?? '';
     final codigo = _codigoInterno ?? '';

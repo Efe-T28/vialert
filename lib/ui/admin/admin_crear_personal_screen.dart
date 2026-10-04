@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'crear_conductor_screen.dart';
 import 'crear_paramedico_screen.dart';
 import 'crear_ambulancia_screen.dart';
+import 'crear_flota_screen.dart';
 
 class AdminCrearPersonalScreen extends StatelessWidget {
   const AdminCrearPersonalScreen({super.key});
@@ -14,8 +15,7 @@ class AdminCrearPersonalScreen extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
           children: [
             const Text(
               'Gestión de Personal',
@@ -64,6 +64,18 @@ class AdminCrearPersonalScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => const CrearAmbulanciaScreen(),
                 ),
+              ),
+            ),
+                        const SizedBox(height: 16),
+            _buildOptionCard(
+              context: context,
+              icon: Icons.local_shipping,
+              title: 'Crear Flota',
+              subtitle: 'Registrar varias ambulancias con una plantilla',
+              color: Colors.orange,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CrearFlotaScreen()),
               ),
             ),
           ],

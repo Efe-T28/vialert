@@ -9,6 +9,7 @@ import 'controllers/personal_controller.dart';
 import 'controllers/ambulancia_controller.dart';
 import 'controllers/map_controller.dart';
 import 'controllers/atencion_alerta_controller.dart';
+import 'controllers/flota_controller.dart';
 import 'services/i_auth_service.dart';
 import 'services/i_database_service.dart';
 import 'services/i_location_service.dart';
@@ -53,6 +54,8 @@ void main() async {
         ChangeNotifierProvider<AmbulanciaController>(
             create: (ctx) =>
                 AmbulanciaController(ctx.read<IDatabaseService>())),
+        ChangeNotifierProvider<FlotaController>(
+            create: (ctx) => FlotaController(ctx.read<IAuthService>())),
         ChangeNotifierProvider<MapController>(
             create: (ctx) => MapController(
                   mapsService: ctx.read<IMapsService>(),

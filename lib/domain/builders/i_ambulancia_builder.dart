@@ -1,6 +1,7 @@
 import '../../models/ambulancia_model.dart';
+import '../prototipo.dart';
 
-abstract class IAmbulanciaBuilder {
+abstract class IAmbulanciaBuilder implements Prototipo<IAmbulanciaBuilder> {
   IAmbulanciaBuilder placa(String valor);
   IAmbulanciaBuilder codigoInterno(String valor);
   IAmbulanciaBuilder entidad(String valor);
