@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/flota_controller.dart';
 import '../../domain/plantillas_flota.dart';
+import '../app.dart';
 
 /// Controladores de una fila (una ambulancia) del formulario.
 class _FilaCtrl {
@@ -129,7 +130,9 @@ class _CrearFlotaScreenState extends State<CrearFlotaScreen> {
     final titulo = Theme.of(context).textTheme.titleMedium;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear Flota')),
+      appBar: AppBar(
+        title: Text('Crear Flota', style: appSectionTitleStyle(context)),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -138,7 +141,8 @@ class _CrearFlotaScreenState extends State<CrearFlotaScreen> {
           TextField(
             controller: _entidadCtrl,
             decoration: const InputDecoration(
-                labelText: 'EntidadId (hospital o supervisor)'),
+                labelText: 'EntidadId (hospital o supervisor)',
+                prefixIcon: Icon(Icons.business_outlined)),
           ),
           const SizedBox(height: 12),
           SegmentedButton<String>(
@@ -190,7 +194,8 @@ class _CrearFlotaScreenState extends State<CrearFlotaScreen> {
             controller: _passwordCtrl,
             obscureText: true,
             decoration: const InputDecoration(
-                labelText: 'Contraseña inicial (igual para toda la flota)'),
+                labelText: 'Contraseña inicial (igual para toda la flota)',
+                prefixIcon: Icon(Icons.lock_outline)),
           ),
           const SizedBox(height: 16),
           if (flota.creando) ...[
@@ -247,15 +252,18 @@ class _FilaWidget extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: fila.placa,
-                    decoration: const InputDecoration(labelText: 'Placa'),
+                    decoration: const InputDecoration(
+                        labelText: 'Placa',
+                        prefixIcon: Icon(Icons.directions_car_outlined)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: fila.codigo,
-                    decoration:
-                        const InputDecoration(labelText: 'Código interno'),
+                    decoration: const InputDecoration(
+                        labelText: 'Código interno',
+                        prefixIcon: Icon(Icons.numbers_outlined)),
                   ),
                 ),
                 IconButton(
@@ -268,8 +276,9 @@ class _FilaWidget extends StatelessWidget {
             TextField(
               controller: fila.email,
               keyboardType: TextInputType.emailAddress,
-              decoration:
-                  const InputDecoration(labelText: 'Email de la ambulancia'),
+              decoration: const InputDecoration(
+                  labelText: 'Email de la ambulancia',
+                  prefixIcon: Icon(Icons.email_outlined)),
             ),
           ],
         ),

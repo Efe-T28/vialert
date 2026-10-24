@@ -52,3 +52,6 @@ app.*.map.json
 
 #api key
 env.json
+
+# Guía interna para Claude Code (no publicar aún, proyecto en desarrollo)
+CLAUDE.md

@@ -17,14 +17,7 @@ class AdminCrearPersonalScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
-            const Text(
-              'Gestión de Personal',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             _buildOptionCard(
               context: context,
               icon: Icons.drive_eta,

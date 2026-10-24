@@ -4,6 +4,7 @@ import '../../domain/builders/ambulancia_builder.dart';
 import '../../domain/builders/ambulancia_director.dart';
 import '../../domain/builders/i_ambulancia_builder.dart';
 import '../../services/i_auth_service.dart';
+import '../app.dart';
 
 class CrearAmbulanciaScreen extends StatefulWidget {
   const CrearAmbulanciaScreen({super.key});
@@ -66,37 +67,59 @@ class _CrearAmbulanciaScreenState extends State<CrearAmbulanciaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear Ambulancia')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ListView(
-          children: [
-            TextField(
-                controller: placa,
-                decoration: const InputDecoration(labelText: 'Placa')),
-            TextField(
-                controller: codigo,
-                decoration: const InputDecoration(labelText: 'Código Interno')),
-            TextField(
-                controller: entidad,
-                decoration: const InputDecoration(labelText: 'EntidadId')),
-            TextField(
-                controller: email,
-                decoration:
-                    const InputDecoration(labelText: 'Email Ambulancia')),
-            TextField(
-                controller: password,
-                decoration:
-                    const InputDecoration(labelText: 'Password Ambulancia'),
-                obscureText: true),
-            const SizedBox(height: 24),
-            loading
-                ? const Center(child: CircularProgressIndicator())
-                : ElevatedButton(
-                    onPressed: _crear,
-                    child: const Text('Crear Ambulancia'),
-                  ),
-          ],
+      appBar: AppBar(
+        title: Text('Crear Ambulancia', style: appSectionTitleStyle(context)),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                      controller: placa,
+                      decoration: const InputDecoration(
+                          labelText: 'Placa',
+                          prefixIcon: Icon(Icons.directions_car_outlined))),
+                  const SizedBox(height: 16),
+                  TextField(
+                      controller: codigo,
+                      decoration: const InputDecoration(
+                          labelText: 'Código Interno',
+                          prefixIcon: Icon(Icons.numbers_outlined))),
+                  const SizedBox(height: 16),
+                  TextField(
+                      controller: entidad,
+                      decoration: const InputDecoration(
+                          labelText: 'EntidadId',
+                          prefixIcon: Icon(Icons.business_outlined))),
+                  const SizedBox(height: 16),
+                  TextField(
+                      controller: email,
+                      decoration: const InputDecoration(
+                          labelText: 'Email Ambulancia',
+                          prefixIcon: Icon(Icons.email_outlined))),
+                  const SizedBox(height: 16),
+                  TextField(
+                      controller: password,
+                      decoration: const InputDecoration(
+                          labelText: 'Password Ambulancia',
+                          prefixIcon: Icon(Icons.lock_outline)),
+                      obscureText: true),
+                  const SizedBox(height: 28),
+                  loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                          onPressed: _crear,
+                          child: const Text('Crear Ambulancia'),
+                        ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
