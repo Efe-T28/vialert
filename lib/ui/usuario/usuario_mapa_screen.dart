@@ -7,6 +7,7 @@ import '../../controllers/alert_controller.dart';
 import '../../controllers/map_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/alerta_model.dart';
+import '../../domain/flyweight/marcador_flyweight.dart';
 
 class UsuarioMapaScreen extends StatefulWidget {
   const UsuarioMapaScreen({super.key});
@@ -110,7 +111,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     );
   }
 
-  // ✅ Cuando se toca un marcador de alerta
+  // Cuando se toca un marcador de alerta
   void _onAlertaMarkerTapped(AlertaModel alerta) {
     setState(() {
       _selectedAlerta = alerta;
@@ -118,7 +119,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     mapController.moveCamera(alerta.position, zoom: 17);
   }
 
-  // ✅ Obtener color según estado
+  // Obtener color según estado
   Color _getEstadoColor(AlertState estado) {
     switch (estado) {
       case AlertState.activa:
@@ -130,7 +131,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     }
   }
 
-  // ✅ Obtener icono según estado
+  // Obtener icono según estado
   IconData _getEstadoIcon(AlertState estado) {
     switch (estado) {
       case AlertState.activa:
@@ -142,7 +143,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     }
   }
 
-  // ✅ Obtener texto según estado
+  // Obtener texto según estado
   String _getEstadoTexto(AlertState estado) {
     switch (estado) {
       case AlertState.activa:
@@ -165,30 +166,24 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     final alerts = context.watch<AlertController>().alerts;
     final lastTapped = context.watch<MapController>().lastTappedPosition;
 
-    // ✅ Marcadores de alertas del usuario
+    // Marcadores de alertas del usuario
     final Set<Marker> markers = alerts
         .where((a) => a.creadaPorUsuarioId == nombreUsuario)
-        .map((a) => Marker(
-              markerId: MarkerId(a.id),
-              position: a.position,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                a.estado == AlertState.activa
-                    ? BitmapDescriptor.hueRed
-                    : a.estado == AlertState.enProceso
-                        ? BitmapDescriptor.hueOrange
-                        : BitmapDescriptor.hueGreen,
-              ),
+        .map((a) => MarcadorFactory.porEstado(a.estado).dibujar(
+              id: a.id,
+              posicion: a.position,
               onTap: () => _onAlertaMarkerTapped(a), // ✅ Tap personalizado
             ))
         .toSet();
 
     // Marcador de posición seleccionada para crear alerta
     if (lastTapped != null && _selectedAlerta == null) {
-      markers.add(Marker(
-        markerId: const MarkerId('selected'),
-        position: lastTapped,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      ));
+      markers.add(
+        MarcadorFactory.posicionElegida().dibujar(
+          id: 'selected',
+          posicion: lastTapped,
+        ),
+      );
     }
 
     return Scaffold(
@@ -203,7 +198,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
             markers: markers,
             myLocationEnabled: true,
             onTap: (pos) {
-              // ✅ Limpiar selección de alerta al tocar el mapa
+              //  Limpiar selección de alerta al tocar el mapa
               setState(() {
                 _selectedAlerta = null;
               });
@@ -215,7 +210,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
             },
           ),
 
-          // ✅ CARD: CREAR ALERTA (cuando se selecciona un punto)
+          //  CARD: CREAR ALERTA (cuando se selecciona un punto)
           if (lastTapped != null && _selectedAlerta == null)
             Positioned(
               bottom: 20,
@@ -256,7 +251,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
               ),
             ),
 
-          // ✅ CARD: INFORMACIÓN DE ALERTA SELECCIONADA
+          //  CARD: INFORMACIÓN DE ALERTA SELECCIONADA
           if (_selectedAlerta != null)
             Positioned(
               bottom: 20,
@@ -321,7 +316,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
                         ],
                       ),
                       const Divider(height: 24),
-                      // ✅ ESTADO DE LA ALERTA
+                      //  ESTADO DE LA ALERTA
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -369,7 +364,7 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // // ✅ Botón para ver más detalles
+                      // //  Botón para ver más detalles
                       // SizedBox(
                       //   width: double.infinity,
                       //   child: OutlinedButton.icon(

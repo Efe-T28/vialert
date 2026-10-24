@@ -8,6 +8,7 @@ import '../../controllers/map_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/atencion_alerta_controller.dart';
 import '../../models/alerta_model.dart';
+import '../../domain/flyweight/marcador_flyweight.dart';
 
 class AmbulanciaMapaScreen extends StatefulWidget {
   const AmbulanciaMapaScreen({super.key});
@@ -147,30 +148,29 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     final polylines = context.watch<MapController>().polylines;
     final atencion = context.watch<AtencionAlertaController>();
 
-    // Marcadores: alertas activas Y en proceso
+        // Marcadores: alertas activas Y en proceso
     final Set<Marker> markers = {};
 
     for (var a in alertas) {
       if (a.estado == AlertState.activa) {
-        markers.add(Marker(
-          markerId: MarkerId(a.id),
-          position: a.position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            selectedAlerta?.id == a.id
-                ? BitmapDescriptor.hueOrange
-                : BitmapDescriptor.hueRed,
+        markers.add(
+          MarcadorFactory.porEstado(
+            a.estado,
+            seleccionada: selectedAlerta?.id == a.id,
+          ).dibujar(
+            id: a.id,
+            posicion: a.position,
+            onTap: () => _onAlertaTapped(a),
           ),
-          onTap: () => _onAlertaTapped(a),
-        ));
+        );
       } else if (a.estado == AlertState.enProceso &&
           a.id == atencion.selectedAlertaId) {
-        markers.add(Marker(
-          markerId: MarkerId(a.id),
-          position: a.position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueOrange,
+        markers.add(
+          MarcadorFactory.porEstado(a.estado).dibujar(
+            id: a.id,
+            posicion: a.position,
           ),
-        ));
+        );
       }
     }
 

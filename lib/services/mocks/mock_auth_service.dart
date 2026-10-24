@@ -1,27 +1,25 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import '../i_auth_service.dart';
 import '../../domain/builders/i_ambulancia_builder.dart';
+import '../../models/auth_user.dart';
 
 class MockAuthService implements IAuthService {
   @override
-  Stream<User?> authStateChanges() => Stream<User?>.value(null);
+  Stream<AuthUser?> authStateChanges() => Stream<AuthUser?>.value(null);
 
   @override
-  Future<User?> login(String email, String password) async {
-    throw UnsupportedError('MockAuthService no puede crear un User de Firebase');
-  }
+  Future<AuthUser?> login(String email, String password) async =>
+      AuthUser(uid: 'mock-uid', email: email);
 
   @override
-  Future<User?> registerUsuarioNormal({
+  Future<AuthUser?> registerUsuarioNormal({
     required String nombre,
     required String apellido,
     required String cedula,
     required String telefono,
     required String email,
     required String password,
-  }) async {
-    return null;
-  }
+  }) async =>
+      AuthUser(uid: 'mock-uid', email: email);
 
   @override
   Future<void> registerAmbulancia({

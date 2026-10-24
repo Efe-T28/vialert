@@ -1,6 +1,6 @@
 // lib/controllers/auth_controller.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../models/auth_user.dart';
 
 import '../services/i_auth_service.dart';
 import '../services/i_database_service.dart';
@@ -10,7 +10,7 @@ class AuthController extends ChangeNotifier {
   final IAuthService authService;
   final IDatabaseService firestoreService;
 
-  User? firebaseUser;
+  AuthUser? authUser;
   UsuarioModel? usuario;
   String? role;
   bool isInitializing = true;
@@ -18,7 +18,7 @@ class AuthController extends ChangeNotifier {
   AuthController({required this.authService, required this.firestoreService}) {
     // Listen to Firebase Auth state changes
     authService.authStateChanges().listen((user) async {
-      firebaseUser = user;
+      authUser = user;
       if (user == null) {
         usuario = null;
         role = null;
@@ -40,8 +40,8 @@ class AuthController extends ChangeNotifier {
     });
   }
 
-  bool get isAuthenticated => firebaseUser != null;
-  String? get uid => firebaseUser?.uid;
+  bool get isAuthenticated => authUser != null;
+  String? get uid => authUser?.uid;
 
   Future<String?> login(String email, String password) async {
     try {

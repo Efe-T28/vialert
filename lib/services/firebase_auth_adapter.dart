@@ -7,14 +7,17 @@ import '../domain/resolvers/usuarios_collection_resolver.dart';
 import '../domain/resolvers/ambulancias_collection_resolver.dart';
 import '../domain/resolvers/admins_collection_resolver.dart';
 import '../domain/builders/i_ambulancia_builder.dart';
+import '../models/auth_user.dart';
 import './i_auth_service.dart';
 
-class AuthService implements IAuthService {
+/// ADAPTER: adapta FirebaseAuth (Adaptee) a IAuthService (Target),
+/// traduciendo el User de Firebase al AuthUser propio de la app.
+class FirebaseAuthAdapter implements IAuthService {
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
   final List<RoleResolver> _roleResolvers;
 
-  AuthService({
+  FirebaseAuthAdapter({
     FirebaseAuth? auth,
     FirebaseFirestore? db,
     List<RoleResolver>? roleResolvers,
@@ -28,20 +31,24 @@ class AuthService implements IAuthService {
               AdminsCollectionResolver(),
             ];
 
+  AuthUser? _adaptar(User? u) =>
+      u == null ? null : AuthUser(uid: u.uid, email: u.email);
 
-  Stream<User?> authStateChanges() => _auth.authStateChanges();
+  @override
+  Stream<AuthUser?> authStateChanges() =>
+      _auth.authStateChanges().map(_adaptar);
 
-
-  Future<User?> login(String email, String password) async {
+  @override
+  Future<AuthUser?> login(String email, String password) async {
     final cred = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
-    return cred.user;
+    return _adaptar(cred.user);
   }
 
-
-  Future<User?> registerUsuarioNormal({
+  @override
+  Future<AuthUser?> registerUsuarioNormal({
     required String nombre,
     required String apellido,
     required String cedula,
@@ -77,11 +84,12 @@ class AuthService implements IAuthService {
       rethrow;
     }
 
-    return user;
+    return _adaptar(user);
   }
 
-    /// Crea la cuenta de una ambulancia sin cerrar la sesión del admin.
-    static const String _nombreAppSecundaria = 'registro';
+  /// Nombre de la segunda instancia de Firebase usada para crear ambulancias
+  /// sin cerrar la sesión del admin.
+  static const String _nombreAppSecundaria = 'registro';
 
   /// Segunda instancia de Firebase (mismo proyecto, sesión independiente).
   /// Se reutiliza si ya existe: initializeApp con el mismo nombre falla.
@@ -135,10 +143,12 @@ class AuthService implements IAuthService {
     }
   }
 
+  @override
   Future<void> logout() async {
     await _auth.signOut();
   }
 
+  @override
   Future<String?> getUserRole(String uid) async {
     try {
       for (final resolver in _roleResolvers) {

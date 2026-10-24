@@ -1,12 +1,12 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import '../domain/builders/i_ambulancia_builder.dart';
+import '../models/auth_user.dart';
 
 abstract class IAuthService {
-  Stream<User?> authStateChanges();
+  Stream<AuthUser?> authStateChanges();
 
-  Future<User?> login(String email, String password);
+  Future<AuthUser?> login(String email, String password);
 
-  Future<User?> registerUsuarioNormal({
+  Future<AuthUser?> registerUsuarioNormal({
     required String nombre,
     required String apellido,
     required String cedula,
