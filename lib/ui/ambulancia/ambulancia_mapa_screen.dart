@@ -174,6 +174,15 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
       }
     }
 
+    if (atencion.hospitalDestino != null) {
+      markers.add(
+        MarcadorFactory.hospital().dibujar(
+          id: 'hospital',
+          posicion: atencion.hospitalDestino!.position,
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mapa de Alertas'),
@@ -287,7 +296,9 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               left: 16,
               right: 16,
               child: Card(
-                color: Colors.orange.shade100,
+                color: atencion.isEnRutaHospital
+                    ? Colors.purple.shade100
+                    : Colors.orange.shade100,
                 elevation: 4,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -298,11 +309,15 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.orange,
+                              color: atencion.isEnRutaHospital
+                                  ? Colors.purple
+                                  : Colors.orange,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(
-                              Icons.directions_car,
+                            child: Icon(
+                              atencion.isEnRutaHospital
+                                  ? Icons.local_hospital
+                                  : Icons.directions_car,
                               color: Colors.white,
                               size: 24,
                             ),
@@ -312,9 +327,11 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'En ruta hacia la alerta',
-                                  style: TextStyle(
+                                Text(
+                                  atencion.isEnRutaHospital
+                                      ? 'En camino al hospital ${atencion.hospitalDestino!.nombre}'
+                                      : 'En ruta hacia la alerta',
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
                                   ),
@@ -330,11 +347,12 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            tooltip: 'Cancelar',
-                            onPressed: _cancelarRuta,
-                          ),
+                          if (!atencion.isEnRutaHospital)
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              tooltip: 'Cancelar',
+                              onPressed: _cancelarRuta,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -348,7 +366,10 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.timer, color: Colors.orange),
+                            Icon(Icons.timer,
+                                color: atencion.isEnRutaHospital
+                                    ? Colors.purple
+                                    : Colors.orange),
                             const SizedBox(width: 8),
                             Text(
                               'Tiempo estimado de llegada: ${atencion.remainingSeconds} seg',
@@ -366,14 +387,94 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: atencion.remainingSeconds /
-                              AtencionAlertaController
-                                  .duracionSimulacionSegundos,
+                              (atencion.isEnRutaHospital
+                                  ? AtencionAlertaController
+                                      .duracionTrasladoHospitalSegundos
+                                  : AtencionAlertaController
+                                      .duracionSimulacionSegundos),
                           backgroundColor: Colors.grey.shade300,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Colors.orange,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            atencion.isEnRutaHospital
+                                ? Colors.purple
+                                : Colors.orange,
                           ),
                           minHeight: 8,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          if (atencion.esperandoConfirmacionHospital)
+            Positioned(
+              bottom: 20,
+              left: 20,
+              right: 20,
+              child: Card(
+                elevation: 8,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.local_hospital,
+                              color: Colors.purple, size: 32),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '¿Trasladar al hospital más cercano?',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  atencion.hospitalPropuesto!.nombre,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () =>
+                                  atencionController.rechazarTrasladoHospital(),
+                              child: const Text('No, finalizar aquí'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: () => atencionController
+                                  .confirmarTrasladoHospital(),
+                              icon: const Icon(Icons.local_hospital),
+                              label: const Text('Sí, trasladar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

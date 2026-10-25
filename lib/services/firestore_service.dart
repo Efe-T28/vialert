@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/alerta_model.dart';
 import '../models/ambulancia_model.dart';
 import '../models/conductor_model.dart';
+import '../models/hospital_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/usuario_model.dart';
 import '../models/personal_model.dart';
@@ -194,5 +195,24 @@ class FirestoreService implements IDatabaseService{
     } catch (e) {
       rethrow;
     }
+  }
+
+  //Hospitales
+  Stream<List<HospitalModel>> streamHospitales() {
+    return _db.collection('hospitales').snapshots().map((snap) => snap.docs
+        .map((d) => HospitalModel.fromMap(d.id, d.data()))
+        .toList());
+  }
+
+  Future<void> crearHospital(HospitalModel h) async {
+    await _db.collection('hospitales').doc(h.id).set(h.toMap());
+  }
+
+  Future<void> updateHospital(String id, Map<String, dynamic> data) async {
+    await _db.collection('hospitales').doc(id).update(data);
+  }
+
+  Future<void> deleteHospital(String id) async {
+    await _db.collection('hospitales').doc(id).delete();
   }
 }

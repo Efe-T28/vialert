@@ -1,6 +1,7 @@
 import '../models/alerta_model.dart';
 import '../models/ambulancia_model.dart';
 import '../models/conductor_model.dart';
+import '../models/hospital_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/personal_model.dart';
 import '../models/usuario_model.dart';
@@ -41,4 +42,10 @@ abstract class IDatabaseService {
   });
 
   Future<bool> liberarPersonalYResetAmbulancia(String ambulanciaId);
+
+  //Hospitales
+  Stream<List<HospitalModel>> streamHospitales();
+  Future<void> crearHospital(HospitalModel h);
+  Future<void> updateHospital(String id, Map<String, dynamic> data);
+  Future<void> deleteHospital(String id);
 }

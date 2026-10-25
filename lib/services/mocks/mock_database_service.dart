@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/alerta_model.dart';
 import '../../models/ambulancia_model.dart';
 import '../../models/conductor_model.dart';
+import '../../models/hospital_model.dart';
 import '../../models/paramedico_model.dart';
 import '../../models/personal_model.dart';
 import '../../models/usuario_model.dart';
@@ -15,6 +17,18 @@ class MockDatabaseService implements IDatabaseService {
   final Map<String, ConductorModel> _conductores = {};
   final Map<String, ParamedicoModel> _paramedicos = {};
   final Map<String, AmbulanciaModel> _ambulancias = {};
+  final Map<String, HospitalModel> _hospitales = {
+    'hospital-mock-1': HospitalModel(
+      id: 'hospital-mock-1',
+      nombre: 'Hospital Rosario Pumarejo de López',
+      position: const LatLng(10.4598, -73.2512),
+    ),
+    'hospital-mock-2': HospitalModel(
+      id: 'hospital-mock-2',
+      nombre: 'Clínica Valledupar',
+      position: const LatLng(10.4680, -73.2550),
+    ),
+  };
 
   final StreamController<void> _cambios = StreamController<void>.broadcast();
 
@@ -173,5 +187,30 @@ class MockDatabaseService implements IDatabaseService {
           paramedicoId, {'estado': 'disponible', 'ambulanciaId': null});
     }
     return true;
+  }
+
+  // ---------- Hospitales ----------
+  @override
+  Stream<List<HospitalModel>> streamHospitales() =>
+      _observar(() => _hospitales.values.toList());
+
+  @override
+  Future<void> crearHospital(HospitalModel h) async {
+    _hospitales[h.id] = h;
+    _notificar();
+  }
+
+  @override
+  Future<void> updateHospital(String id, Map<String, dynamic> data) async {
+    final actual = _hospitales[id];
+    if (actual == null) return;
+    _hospitales[id] = HospitalModel.fromMap(id, {...actual.toMap(), ...data});
+    _notificar();
+  }
+
+  @override
+  Future<void> deleteHospital(String id) async {
+    _hospitales.remove(id);
+    _notificar();
   }
 }

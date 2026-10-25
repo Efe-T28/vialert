@@ -10,6 +10,7 @@ import 'controllers/ambulancia_controller.dart';
 import 'controllers/map_controller.dart';
 import 'controllers/atencion_alerta_controller.dart';
 import 'controllers/flota_controller.dart';
+import 'controllers/hospital_controller.dart';
 import 'services/i_auth_service.dart';
 import 'services/i_database_service.dart';
 import 'services/i_location_service.dart';
@@ -61,11 +62,14 @@ void main() async {
                   mapsService: ctx.read<IMapsService>(),
                   locationService: ctx.read<ILocationService>(),
                 )),
+        ChangeNotifierProvider<HospitalController>(
+            create: (ctx) => HospitalController(ctx.read<IDatabaseService>())),
         ChangeNotifierProvider<AtencionAlertaController>(
             create: (ctx) => AtencionAlertaController(
                   ctx.read<AlertController>(),
                   ctx.read<AmbulanciaController>(),
                   ctx.read<MapController>(),
+                  ctx.read<HospitalController>(),
                 )),
       ],
       child: const MyApp(),

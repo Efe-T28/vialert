@@ -32,9 +32,12 @@ class LocationService implements ILocationService {
   @override
   Stream<LatLng>? onLocationChanged() {
     try {
-      return Geolocator.getPositionStream().map((pos) {
-        return LatLng(pos.latitude, pos.longitude);
-      });
+      const settings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 15,
+      );
+      return Geolocator.getPositionStream(locationSettings: settings)
+          .map((pos) => LatLng(pos.latitude, pos.longitude));
     } catch (e) {
       return null;
     }

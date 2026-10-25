@@ -3,6 +3,7 @@ import 'crear_conductor_screen.dart';
 import 'crear_paramedico_screen.dart';
 import 'crear_ambulancia_screen.dart';
 import 'crear_flota_screen.dart';
+import 'admin_hospitales_screen.dart';
 
 class AdminCrearPersonalScreen extends StatelessWidget {
   const AdminCrearPersonalScreen({super.key});
@@ -69,6 +70,20 @@ class AdminCrearPersonalScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const CrearFlotaScreen()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildOptionCard(
+              context: context,
+              icon: Icons.add_location_alt,
+              title: 'Gestionar Hospitales',
+              subtitle: 'Registrar hospitales para traslado de pacientes',
+              color: Colors.purple,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminHospitalesScreen(),
+                ),
               ),
             ),
           ],
