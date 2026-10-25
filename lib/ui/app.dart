@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart';
+import '../controllers/ambulancia_controller.dart';
+import '../models/ambulancia_model.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
 import 'usuario/usuario_home.dart';
 import 'ambulancia/ambulancia_home.dart';
+import 'ambulancia/ambulancia_mapa_home.dart';
 import 'admin/admin_home.dart';
 
 /// Tema M3 compartido por toda la app: paleta azul/blanco (ColorScheme
@@ -173,7 +176,7 @@ class AuthWrapper extends StatelessWidget {
       case 'admin':
         return const AdminHome();
       case 'ambulancia':
-        return const AmbulanciaHome();
+        return const _AmbulanciaRoot();
       default:
         return Scaffold(
           body: Center(
@@ -191,5 +194,43 @@ class AuthWrapper extends StatelessWidget {
           ),
         );
     }
+  }
+}
+
+/// Punto de entrada para el rol `ambulancia`: consulta el estado real en
+/// Firestore antes de decidir la pantalla, en vez de ir siempre a la
+/// asignación de personal. Si la ambulancia ya tiene conductor y paramédico
+/// asignados (p. ej. porque la app se cerró de forma forzada sin pasar por
+/// "Cerrar sesión", que es lo único que libera al personal), retoma
+/// directamente el mapa en vez de pedir que se vuelva a elegir personal
+/// (que ya no aparecería disponible, al seguir reservado).
+class _AmbulanciaRoot extends StatelessWidget {
+  const _AmbulanciaRoot();
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = context.read<AuthController>().uid;
+    final ambulancias = context.watch<AmbulanciaController>().ambulancias;
+
+    AmbulanciaModel? miAmbulancia;
+    for (final a in ambulancias) {
+      if (a.id == uid) {
+        miAmbulancia = a;
+        break;
+      }
+    }
+
+    if (miAmbulancia == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final yaTienePersonal = miAmbulancia.currentConductorId != null &&
+        miAmbulancia.currentParamedicoId != null;
+
+    return yaTienePersonal
+        ? const AmbulanciaMapaHome()
+        : const AmbulanciaHome();
   }
 }

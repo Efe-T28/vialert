@@ -17,6 +17,53 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
   String? selectedParamedico;
   bool _loading = false;
 
+  Future<void> _cerrarSesion() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (!mounted) return;
+
+    final auth = context.read<AuthController>();
+    final ambCtrl = context.read<AmbulanciaController>();
+
+    if (auth.uid != null) {
+      try {
+        await ambCtrl.liberarPersonalYResetAmbulancia(auth.uid!);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  "No se pudo liberar el personal asignado. Se cerrará sesión de todas formas."),
+            ),
+          );
+        }
+      }
+    }
+
+    await auth.logout();
+
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final personal = context.watch<PersonalController>();
@@ -119,6 +166,17 @@ class _AmbulanciaHomeState extends State<AmbulanciaHome> {
               ),
             ),
             const Spacer(),
+
+            if (!_loading)
+              OutlinedButton.icon(
+                onPressed: _cerrarSesion,
+                icon: const Icon(Icons.logout),
+                label: const Text("Cerrar sesión"),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            const SizedBox(height: 12),
 
             _loading
                 ? const Center(child: CircularProgressIndicator())

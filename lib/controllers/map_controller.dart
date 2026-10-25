@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../domain/route_deviation.dart';
 import '../services/i_maps_service.dart';
 import '../services/i_location_service.dart';
 import 'package:flutter/material.dart';
@@ -77,27 +77,13 @@ class MapController extends ChangeNotifier {
     }
 
     final ruta = polylines.first.points;
-    final desviado = _distanciaMinimaARuta(posicion, ruta) > _desviacionMaximaMetros;
+    final desviado = distanciaMinimaARuta(posicion, ruta) > _desviacionMaximaMetros;
     if (!desviado) return;
 
     _recalculando = true;
     _ultimoRecalculo = ahora;
     await createRoute(posicion, _destinoActual!);
     _recalculando = false;
-  }
-
-  double _distanciaMinimaARuta(LatLng punto, List<LatLng> ruta) {
-    double minDistancia = double.infinity;
-    for (final p in ruta) {
-      final distancia = Geolocator.distanceBetween(
-        punto.latitude,
-        punto.longitude,
-        p.latitude,
-        p.longitude,
-      );
-      if (distancia < minDistancia) minDistancia = distancia;
-    }
-    return minDistancia;
   }
 
   void clearRoute() {
