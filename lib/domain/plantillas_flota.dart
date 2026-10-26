@@ -1,6 +1,16 @@
 import 'builders/i_ambulancia_builder.dart';
 
+/// Registry + Singleton: una única fuente de verdad para las plantillas.
 class PlantillasFlota {
+  // Constructor privado: nadie fuera de esta clase puede hacer `new`.
+  PlantillasFlota._();
+
+  // La única instancia, creada una sola vez al cargar la clase.
+  static final PlantillasFlota _instancia = PlantillasFlota._();
+
+  // Siempre devuelve _instancia, nunca crea otra.
+  factory PlantillasFlota() => _instancia;
+
   final Map<String, IAmbulanciaBuilder> _plantillas = {};
 
   static String normalizar(String entidadId) => entidadId.trim().toUpperCase();
@@ -19,4 +29,7 @@ class PlantillasFlota {
     }
     return base.clone();
   }
+
+  /// Vacía el registro (logout, pruebas).
+  void reiniciar() => _plantillas.clear();
 }

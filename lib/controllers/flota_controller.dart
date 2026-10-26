@@ -31,10 +31,9 @@ class ResultadoFila {
 
 class FlotaController extends ChangeNotifier {
   final IAuthService _auth;
-  final PlantillasFlota _plantillas;
+  final PlantillasFlota _plantillas = PlantillasFlota();
 
-  FlotaController(this._auth, {PlantillasFlota? plantillas})
-      : _plantillas = plantillas ?? PlantillasFlota();
+  FlotaController(this._auth);
 
   bool creando = false;
   int procesadas = 0;
