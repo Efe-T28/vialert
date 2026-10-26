@@ -60,6 +60,18 @@ class MockDatabaseService implements IDatabaseService {
     _notificar();
   }
 
+    @override
+  Future<void> agregarFotosAAlerta(String id, List<String> urls) async {
+    final actual = _alertas[id];
+    if (actual == null) return;
+    await updateAlerta(id, {
+      'fotos': [
+        ...actual.fotos,
+        ...urls.where((u) => !actual.fotos.contains(u)),
+      ],
+    });
+  }
+
   @override
   Future<AlertaModel?> getAlertaById(String id) async => _alertas[id];
 

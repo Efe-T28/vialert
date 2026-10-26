@@ -40,6 +40,8 @@ dependencies:
   # UI / TIPOGRAFÍA
   # ------------------------
   google_fonts: ^6.2.1
+  image_picker: ^1.2.4
+  firebase_storage: ^12.4.10
 
 dev_dependencies:
   flutter_test:

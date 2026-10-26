@@ -15,6 +15,7 @@ import 'services/i_auth_service.dart';
 import 'services/i_database_service.dart';
 import 'services/i_location_service.dart';
 import 'services/i_maps_service.dart';
+import 'services/i_storage_service.dart';
 import 'services/factories/app_services_factory.dart';
 import 'services/factories/firebase_services_factory.dart';
 // import 'services/factories/mock_services_factory.dart';
@@ -38,14 +39,20 @@ void main() async {
             create: (_) => servicios.createDatabaseService()),
         Provider<ILocationService>(
             create: (_) => servicios.createLocationService()),
-        Provider<IMapsService>(create: (_) => servicios.createMapsService()),
+        Provider<IMapsService>( 
+            create: (_) => servicios.createMapsService()),
+        Provider<IStorageService>(
+            create: (_) => servicios.createStorageService()),
         ChangeNotifierProvider<AuthController>(
             create: (ctx) => AuthController(
                   authService: ctx.read<IAuthService>(),
                   firestoreService: ctx.read<IDatabaseService>(),
                 )),
         ChangeNotifierProvider<AlertController>(
-            create: (ctx) => AlertController(ctx.read<IDatabaseService>())),
+            create: (ctx) => AlertController(
+                  ctx.read<IDatabaseService>(),
+                  ctx.read<IStorageService>(),
+                )),
         ChangeNotifierProvider<PersonalController>(
             create: (ctx) => PersonalController(
                   ctx.read<IDatabaseService>(),

@@ -9,6 +9,7 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/atencion_alerta_controller.dart';
 import '../../models/alerta_model.dart';
 import '../../domain/flyweight/marcador_flyweight.dart';
+import '../widgets/galeria_fotos_alerta.dart';
 
 class AmbulanciaMapaScreen extends StatefulWidget {
   const AmbulanciaMapaScreen({super.key});
@@ -257,6 +258,12 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
                             onPressed: _cancelarSeleccion,
                           ),
                         ],
+                      ),
+                      GaleriaFotosAlerta(
+                        fotos: selectedAlerta!.fotos,
+                        altura: 72,
+                        mostrarTitulo: false,
+                        padding: const EdgeInsets.only(top: 12),
                       ),
                       const SizedBox(height: 16),
                       Row(

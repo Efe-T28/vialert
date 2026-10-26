@@ -7,6 +7,8 @@ import '../i_database_service.dart';
 import '../i_location_service.dart';
 import '../i_maps_service.dart';
 import 'app_services_factory.dart';
+import '../mocks/mock_storage_service.dart';
+import '../i_storage_service.dart';
 
 /// Familia de pruebas: todo en memoria, sin red ni Firebase.
 class MockServicesFactory extends AppServicesFactory {
@@ -21,4 +23,7 @@ class MockServicesFactory extends AppServicesFactory {
 
   @override
   IMapsService createMapsService() => MockMapsService();
+
+  @override
+  IStorageService createStorageService() => MockStorageService();
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../models/alerta_model.dart';
+import '../widgets/galeria_fotos_alerta.dart';
 
 class UsuarioDetalleAlertaScreen extends StatelessWidget {
   final AlertaModel alerta;
@@ -47,6 +48,7 @@ class UsuarioDetalleAlertaScreen extends StatelessWidget {
               title: 'Fecha de creación',
               content: dateFormat.format(alerta.createdAt),
             ),
+            GaleriaFotosAlerta(fotos: alerta.fotos),
             const SizedBox(height: 20),
             const Text(
               'Ubicación',

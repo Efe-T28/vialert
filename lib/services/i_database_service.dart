@@ -13,6 +13,7 @@ abstract class IDatabaseService {
   Future<void> crearAlerta(AlertaModel alerta);
   Future<void> updateAlerta(String id, Map<String, dynamic> data);
   Future<AlertaModel?> getAlertaById(String id);
+  Future<void> agregarFotosAAlerta(String id, List<String> urls);
 
 
   //Usuarios

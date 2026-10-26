@@ -10,6 +10,10 @@ import '../i_database_service.dart';
 import '../i_location_service.dart';
 import '../i_maps_service.dart';
 import 'app_services_factory.dart';
+import '../../config/app_config.dart';
+import '../firebase_storage_adapter.dart';
+import '../i_storage_service.dart';
+import '../mocks/mock_storage_service.dart';
 
 /// Familia de producción: Firebase + Geolocator + Google Directions.
 class FirebaseServicesFactory extends AppServicesFactory {
@@ -31,4 +35,9 @@ class FirebaseServicesFactory extends AppServicesFactory {
   @override
   IMapsService createMapsService() =>
   GoogleDirectionsAdapter(DirectionsApiClient(apiKey: _mapsApiKey));
+
+    @override
+  IStorageService createStorageService() => AppConfig.fotosSimuladas
+      ? MockStorageService()
+      : FirebaseStorageAdapter();
 }

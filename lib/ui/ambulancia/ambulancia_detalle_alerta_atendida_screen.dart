@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../models/alerta_model.dart';
+import '../widgets/galeria_fotos_alerta.dart';
 
 class AmbulanciaDetalleAlertaAtendidaScreen extends StatelessWidget {
   final AlertaModel alerta;
@@ -73,6 +74,7 @@ class AmbulanciaDetalleAlertaAtendidaScreen extends StatelessWidget {
               content: dateFormat.format(alerta.createdAt),
               color: Colors.orange,
             ),
+            GaleriaFotosAlerta(fotos: alerta.fotos),
             const SizedBox(height: 24),
             _buildSectionTitle('Reportada por'),
             const SizedBox(height: 12),

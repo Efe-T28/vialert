@@ -8,6 +8,8 @@ import '../../controllers/map_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/alerta_model.dart';
 import '../../domain/flyweight/marcador_flyweight.dart';
+import 'widgets/reportar_accidente_dialog.dart';
+import 'widgets/banner_subida_fotos.dart';
 
 class UsuarioMapaScreen extends StatefulWidget {
   const UsuarioMapaScreen({super.key});
@@ -56,11 +58,10 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     mapController.setMapController(controller);
   }
 
-  Future<void> _crearAlertaEnPosicion(LatLng pos) async {
-    final desc = await _showDescriptionDialog();
-    if (desc == null) {
-      return;
-    }
+    Future<void> _crearAlertaEnPosicion(LatLng pos) async {
+    final reporte = await _showDescriptionDialog();
+    if (reporte == null) return;
+    if (!mounted) return;
 
     final auth = context.read<AuthController>();
 
@@ -70,44 +71,29 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
 
     await alertController.crearAlerta(
       type: 'Accidente',
-      description: desc,
+      description: reporte.descripcion,
       position: pos,
       creadaPorUsuarioId: nombreUsuario,
+      creadaPorUid: auth.uid,
+      fotos: reporte.fotos,
     );
 
     mapController.setLastTapped(null);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Alerta creada correctamente')),
+      SnackBar(
+        content: Text(reporte.fotos.isEmpty
+            ? 'Alerta creada correctamente'
+            : 'Alerta creada. Subiendo fotos…'),
+      ),
     );
   }
 
-  Future<String?> _showDescriptionDialog() {
-    final c = TextEditingController();
-    return showDialog<String>(
+  Future<ReporteAccidente?> _showDescriptionDialog() {
+    return showDialog<ReporteAccidente>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Reportar Accidente'),
-        content: TextField(
-          controller: c,
-          decoration: const InputDecoration(hintText: 'Descripción (opcional)'),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(
-              context,
-              c.text.trim().isEmpty ? 'Sin descripción' : c.text.trim(),
-            ),
-            child: const Text('Crear'),
-          ),
-        ],
-      ),
+      builder: (_) => const ReportarAccidenteDialog(),
     );
   }
 
@@ -208,6 +194,13 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
               Factory<OneSequenceGestureRecognizer>(
                   () => EagerGestureRecognizer()),
             },
+          ),
+
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: BannerSubidaFotos(),
           ),
 
           //  CARD: CREAR ALERTA (cuando se selecciona un punto)

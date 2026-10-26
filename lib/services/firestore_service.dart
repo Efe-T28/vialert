@@ -33,6 +33,14 @@ class FirestoreService implements IDatabaseService{
     return AlertaModel.fromMap(s.id, s.data()!);
   }
 
+  Future<void> agregarFotosAAlerta(String id, List<String> urls) async {
+    if (urls.isEmpty) return;
+    await _db
+        .collection('alertas')
+        .doc(id)
+        .update({'fotos': FieldValue.arrayUnion(urls)});
+  }
+
 
 
   //Usuarios
