@@ -1,8 +1,7 @@
 import 'builders/i_ambulancia_builder.dart';
 
-/// Registry + Singleton: una única fuente de verdad para las plantillas.
 class PlantillasFlota {
-  // Constructor privado: nadie fuera de esta clase puede hacer `new`.
+  
   PlantillasFlota._();
 
   // La única instancia, creada una sola vez al cargar la clase.
