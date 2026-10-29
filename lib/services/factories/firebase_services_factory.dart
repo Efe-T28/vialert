@@ -4,6 +4,7 @@ import '../firebase_auth_adapter.dart';
 import '../firestore_service.dart';
 import '../location_service.dart';
 import '../google_directions_adapter.dart';
+import '../maps_services_proxy.dart';
 import '../directions/directions_api_client.dart';
 import '../i_auth_service.dart';
 import '../i_database_service.dart';
@@ -33,8 +34,9 @@ class FirebaseServicesFactory extends AppServicesFactory {
       String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 
   @override
-  IMapsService createMapsService() =>
-  GoogleDirectionsAdapter(DirectionsApiClient(apiKey: _mapsApiKey));
+  IMapsService createMapsService() => MapsServicesProxy(
+        GoogleDirectionsAdapter(DirectionsApiClient(apiKey: _mapsApiKey)),
+      );
 
     @override
   IStorageService createStorageService() => AppConfig.fotosSimuladas
