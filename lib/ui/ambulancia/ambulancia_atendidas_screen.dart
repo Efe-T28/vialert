@@ -1,19 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../controllers/alert_controller.dart';
 import '../../controllers/auth_controller.dart';
+import '../../domain/iterators/historial_alertas_collection.dart';
+import '../../domain/iterators/i_alerta_iterator.dart';
+import '../../models/alerta_model.dart';
+import '../../services/i_location_service.dart';
 import 'ambulancia_detalle_alerta_atendida_screen.dart';
 
-class AmbulanciaAtendidasScreen extends StatelessWidget {
+enum _CriterioOrden { fecha, cercania }
+
+class AmbulanciaAtendidasScreen extends StatefulWidget {
   const AmbulanciaAtendidasScreen({super.key});
+
+  @override
+  State<AmbulanciaAtendidasScreen> createState() =>
+      _AmbulanciaAtendidasScreenState();
+}
+
+class _AmbulanciaAtendidasScreenState
+    extends State<AmbulanciaAtendidasScreen> {
+  _CriterioOrden _criterio = _CriterioOrden.fecha;
+  LatLng? _ubicacionActual;
+  bool _buscandoUbicacion = false;
+
+  Future<void> _seleccionarCercania() async {
+    setState(() {
+      _criterio = _CriterioOrden.cercania;
+      _buscandoUbicacion = _ubicacionActual == null;
+    });
+    if (_ubicacionActual != null) return;
+    final ubicacion =
+        await context.read<ILocationService>().getCurrentLocation();
+    if (!mounted) return;
+    setState(() {
+      _ubicacionActual = ubicacion;
+      _buscandoUbicacion = false;
+    });
+  }
+
+  List<AlertaModel> _ordenar(List<AlertaModel> atendidas) {
+    final historial = HistorialAlertasCollection(atendidas);
+    final IAlertaIterator it;
+    if (_criterio == _CriterioOrden.cercania && _ubicacionActual != null) {
+      it = historial.porCercania(_ubicacionActual!);
+    } else {
+      it = historial.porFecha();
+    }
+    final ordenadas = <AlertaModel>[];
+    while (it.hasNext()) {
+      ordenadas.add(it.next());
+    }
+    return ordenadas;
+  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthController>();
     final alertController = context.watch<AlertController>();
-    final atendidas =
-        alertController.getAlertasAtendidasByAmbulancia(auth.uid ?? '');
+    final atendidas = _ordenar(
+      alertController.getAlertasAtendidasByAmbulancia(auth.uid ?? ''),
+    );
 
     final dateFormat = DateFormat('dd/MM/yyyy');
     final timeFormat = DateFormat('HH:mm');
@@ -22,20 +71,52 @@ class AmbulanciaAtendidasScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Alertas Atendidas'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(96),
           child: Container(
             padding: const EdgeInsets.all(12),
             color: Colors.green.shade50,
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.history, color: Colors.green),
-                const SizedBox(width: 12),
-                Text(
-                  'Total atendidas: ${atendidas.length}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    const Icon(Icons.history, color: Colors.green),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Total atendidas: ${atendidas.length}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Text('Ordenar por: '),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('Fecha'),
+                      selected: _criterio == _CriterioOrden.fecha,
+                      onSelected: (_) =>
+                          setState(() => _criterio = _CriterioOrden.fecha),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('Cercanía'),
+                      selected: _criterio == _CriterioOrden.cercania,
+                      onSelected: (_) => _seleccionarCercania(),
+                    ),
+                    if (_buscandoUbicacion) ...[
+                      const SizedBox(width: 12),
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
