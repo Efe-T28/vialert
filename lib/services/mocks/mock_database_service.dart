@@ -75,6 +75,50 @@ class MockDatabaseService implements IDatabaseService {
   @override
   Future<AlertaModel?> getAlertaById(String id) async => _alertas[id];
 
+  @override
+  Future<TomarAlertaResultado> tomarAlerta({
+    required String alertaId,
+    required String ambulanciaId,
+  }) async {
+    final alerta = _alertas[alertaId];
+    if (alerta == null ||
+        alerta.estado != AlertState.activa ||
+        alerta.ambulanciaAsignada != null) {
+      return TomarAlertaResultado.yaTomada;
+    }
+
+    final amb = _ambulancias[ambulanciaId];
+    if (amb != null && amb.currentAlertaId != null) {
+      return TomarAlertaResultado.ambulanciaOcupada;
+    }
+
+    await updateAlerta(alertaId, {
+      'estado': AlertState.enProceso.name,
+      'ambulanciaAsignada': ambulanciaId,
+    });
+    await updateAmbulancia(ambulanciaId, {'currentAlertaId': alertaId});
+    return TomarAlertaResultado.ok;
+  }
+
+  @override
+  Future<void> liberarAlerta({
+    required String alertaId,
+    required String ambulanciaId,
+  }) async {
+    final alerta = _alertas[alertaId];
+    // Solo revierte si sigue tomada por esta ambulancia; si ya fue
+    // atendida no se toca.
+    if (alerta != null &&
+        alerta.estado == AlertState.enProceso &&
+        alerta.ambulanciaAsignada == ambulanciaId) {
+      await updateAlerta(alertaId, {
+        'estado': AlertState.activa.name,
+        'ambulanciaAsignada': null,
+      });
+    }
+    await updateAmbulancia(ambulanciaId, {'currentAlertaId': null});
+  }
+
   // ---------- Usuarios ----------
   @override
   Future<UsuarioModel?> getUsuarioByUid(String uid) async => _usuarios[uid];

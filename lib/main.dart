@@ -22,6 +22,18 @@ import 'services/factories/firebase_services_factory.dart';
 import 'domain/repositories/conductores_repository.dart';
 import 'domain/repositories/paramedicos_repository.dart';
 import 'ui/app.dart';
+import 'ui/ambulancia/isla_navegacion_overlay.dart';
+
+/// Entrypoint del overlay "isla de navegación" (flutter_overlay_window):
+/// corre en su propio engine cuando la ambulancia sale de la app en ruta.
+@pragma("vm:entry-point")
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: IslaNavegacionOverlay(),
+  ));
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

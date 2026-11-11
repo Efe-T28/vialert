@@ -152,9 +152,12 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
     final alerts = context.watch<AlertController>().alerts;
     final lastTapped = context.watch<MapController>().lastTappedPosition;
 
-    // Marcadores de alertas del usuario
+    // Marcadores de alertas del usuario; las atendidas ya no se muestran
+    // en el mapa (quedan solo en "Mis Alertas").
     final Set<Marker> markers = alerts
-        .where((a) => a.creadaPorUsuarioId == nombreUsuario)
+        .where((a) =>
+            a.creadaPorUsuarioId == nombreUsuario &&
+            a.estado != AlertState.atendida)
         .map((a) => MarcadorFactory.porEstado(a.estado).dibujar(
               id: a.id,
               posicion: a.position,

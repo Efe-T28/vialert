@@ -134,13 +134,12 @@ class AlertController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> asignarAmbulanciaAAlerta(
-      String alertaId, String ambulanciaId) async {
-    await _fs.updateAlerta(alertaId, {
-      'estado': AlertState.enProceso.name,
-      'ambulanciaAsignada': ambulanciaId,
-    });
-  }
+  Future<TomarAlertaResultado> tomarAlerta(
+          String alertaId, String ambulanciaId) =>
+      _fs.tomarAlerta(alertaId: alertaId, ambulanciaId: ambulanciaId);
+
+  Future<void> liberarAlerta(String alertaId, String ambulanciaId) =>
+      _fs.liberarAlerta(alertaId: alertaId, ambulanciaId: ambulanciaId);
 
   Future<void> marcarComoAtendida(String alertaId) async {
     await _fs.updateAlerta(alertaId, {
@@ -162,5 +161,24 @@ class AlertController extends ChangeNotifier {
 
   List<AlertaModel> getAlertasActivas() {
     return alerts.where((a) => a.estado == AlertState.activa).toList();
+  }
+
+  List<AlertaModel> getAlertasPendientes() {
+    // El null-check de ambulanciaAsignada amortigua la latencia del stream
+    // justo después de que otra ambulancia tome la alerta.
+    return alerts
+        .where((a) =>
+            a.estado == AlertState.activa && a.ambulanciaAsignada == null)
+        .toList();
+  }
+
+  AlertaModel? getAlertaTomadaPor(String ambulanciaId) {
+    for (final a in alerts) {
+      if (a.estado == AlertState.enProceso &&
+          a.ambulanciaAsignada == ambulanciaId) {
+        return a;
+      }
+    }
+    return null;
   }
 }

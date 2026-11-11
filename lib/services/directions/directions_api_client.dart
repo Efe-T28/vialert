@@ -20,6 +20,8 @@ class DirectionsApiClient {
       final uri = Uri.https('maps.googleapis.com', '/maps/api/directions/json', {
         'origin': '$origenLat,$origenLng',
         'destination': '$destinoLat,$destinoLng',
+        'language': 'es',
+        'region': 'co',
         'key': apiKey,
       });
       final resp = await _http.get(uri);

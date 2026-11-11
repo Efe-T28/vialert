@@ -15,6 +15,18 @@ abstract class IDatabaseService {
   Future<AlertaModel?> getAlertaById(String id);
   Future<void> agregarFotosAAlerta(String id, List<String> urls);
 
+  /// Reserva transaccional de una alerta: solo una ambulancia puede ganarla.
+  Future<TomarAlertaResultado> tomarAlerta({
+    required String alertaId,
+    required String ambulanciaId,
+  });
+
+  /// Revierte una alerta tomada (vuelve a activa) y limpia currentAlertaId.
+  Future<void> liberarAlerta({
+    required String alertaId,
+    required String ambulanciaId,
+  });
+
 
   //Usuarios
   Future<UsuarioModel?> getUsuarioByUid(String uid);

@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/alert_controller.dart';
 import '../../controllers/map_controller.dart';
-import '../../controllers/auth_controller.dart';
 import '../../controllers/atencion_alerta_controller.dart';
 import '../../models/alerta_model.dart';
+import '../../models/ruta_detallada.dart';
 import '../../domain/flyweight/marcador_flyweight.dart';
-import '../widgets/galeria_fotos_alerta.dart';
+import 'maniobra_icono.dart';
 
+/// Mapa de la ambulancia: solo muestra la ruta y la ubicación de la
+/// alerta en atención (más el hospital de destino). Las alertas se
+/// toman desde la pestaña Alertas.
 class AmbulanciaMapaScreen extends StatefulWidget {
   const AmbulanciaMapaScreen({super.key});
 
@@ -20,17 +24,17 @@ class AmbulanciaMapaScreen extends StatefulWidget {
 
 class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
   late final MapController mapController;
-  late final AlertController alertController;
   late final AtencionAlertaController atencionController;
 
-  AlertaModel? selectedAlerta;
+  bool _estabaEnRuta = false;
+  bool _pildoraExpandida = false;
 
   @override
   void initState() {
     super.initState();
     mapController = context.read<MapController>();
-    alertController = context.read<AlertController>();
     atencionController = context.read<AtencionAlertaController>();
+    _estabaEnRuta = atencionController.isEnRuta;
     atencionController.addListener(_onAtencionChanged);
   }
 
@@ -41,13 +45,13 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
   }
 
   void _onAtencionChanged() {
-    if (selectedAlerta == null) return;
-    if (atencionController.selectedAlertaId != null) return;
-    if (atencionController.isLoading) return;
-
-    setState(() => selectedAlerta = null);
-
-    if (atencionController.lastError != null) return;
+    final enRuta = atencionController.isEnRuta;
+    final termino = _estabaEnRuta &&
+        !enRuta &&
+        !atencionController.isLoading &&
+        atencionController.lastError == null;
+    _estabaEnRuta = enRuta;
+    if (!termino || !mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -66,44 +70,6 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
 
   void _onMapCreated(GoogleMapController controller) {
     mapController.setMapController(controller);
-  }
-
-  void _onAlertaTapped(AlertaModel alerta) {
-    setState(() => selectedAlerta = alerta);
-    mapController.moveCamera(alerta.position, zoom: 15);
-  }
-
-  Future<void> _atenderAlerta() async {
-    if (selectedAlerta == null) return;
-    final auth = context.read<AuthController>();
-    if (auth.uid == null) return;
-
-    final alerta = selectedAlerta!;
-    await atencionController.atenderAlerta(alerta, auth.uid!);
-
-    if (!mounted) return;
-
-    if (atencionController.lastError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${atencionController.lastError}')),
-      );
-      setState(() => selectedAlerta = null);
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.directions_car, color: Colors.white),
-            SizedBox(width: 12),
-            Text('En camino hacia la alerta...'),
-          ],
-        ),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   Future<void> _finalizarManualmente() async {
@@ -134,44 +100,196 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     await atencionController.finalizarManualmente();
   }
 
-  void _cancelarSeleccion() {
-    setState(() => selectedAlerta = null);
+  Future<void> _cancelarRuta() async {
+    // Evita que el listener interprete la cancelación como atención exitosa.
+    _estabaEnRuta = false;
+    await atencionController.cancelarRuta();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Alerta liberada, vuelve a Pendientes.'),
+        backgroundColor: Colors.blueGrey,
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
-  void _cancelarRuta() {
-    atencionController.cancelarRuta();
-    setState(() => selectedAlerta = null);
+  String _formatoRestante(int segundos) {
+    if (segundos < 60) return '$segundos s';
+    return '${(segundos / 60).ceil()} min';
+  }
+
+  String _horaLlegada(int segundosRestantes) =>
+      DateFormat('h:mm a').format(
+          DateTime.now().add(Duration(seconds: segundosRestantes)));
+
+  /// Píldora de navegación: compacta muestra flecha + ETA; al tocarla se
+  /// expande con la instrucción, distancia, progreso y salir de navegación.
+  Widget _pildoraNavegacion(
+      AtencionAlertaController atencion, MapController mapCtrl) {
+    final colorAcento =
+        atencion.isEnRutaHospital ? Colors.purpleAccent : Colors.orangeAccent;
+    final PasoRuta? paso = mapCtrl.proximoPaso;
+    final iconoPaso = iconoManiobra(paso?.maniobra ?? '');
+    final ruta = mapCtrl.rutaActual;
+
+    final cuerpo = _pildoraExpandida
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(iconoPaso, color: colorAcento, size: 36),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Llegada: ${_horaLlegada(atencion.remainingSeconds)}'
+                          ' · ${_formatoRestante(atencion.remainingSeconds)}',
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          paso?.instruccion ??
+                              (atencion.isEnRutaHospital
+                                  ? 'Sigue la ruta hacia ${atencion.hospitalDestino!.nombre}'
+                                  : 'Sigue la ruta hacia la alerta'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (ruta != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${ruta.distanciaTexto} · ${ruta.duracionTexto} en total',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.expand_less, color: Colors.white54),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: 1 -
+                      atencion.remainingSeconds /
+                          (atencion.duracionTotalSegundos <= 0
+                              ? 1
+                              : atencion.duracionTotalSegundos),
+                  backgroundColor: Colors.white24,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorAcento),
+                  minHeight: 6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (!atencion.isEnRutaHospital)
+                    TextButton(
+                      onPressed: _cancelarRuta,
+                      child: Text(
+                        'Salir de la navegación',
+                        style: TextStyle(color: Colors.lightBlue.shade200),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  TextButton.icon(
+                    onPressed: _finalizarManualmente,
+                    icon: const Icon(Icons.check_circle,
+                        color: Colors.lightGreenAccent, size: 18),
+                    label: const Text(
+                      'Finalizar atención',
+                      style: TextStyle(color: Colors.lightGreenAccent),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(iconoPaso, color: colorAcento, size: 26),
+              const SizedBox(width: 10),
+              Text(
+                '${_formatoRestante(atencion.remainingSeconds)} · '
+                'Llegada: ${_horaLlegada(atencion.remainingSeconds)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.expand_more, color: Colors.white54, size: 20),
+            ],
+          );
+
+    return GestureDetector(
+      onTap: () => setState(() => _pildoraExpandida = !_pildoraExpandida),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        // El mismo maxWidth en ambos estados: interpolar entre un ancho
+        // finito y uno infinito lanza una aserción de Flutter.
+        constraints: const BoxConstraints(maxWidth: 420),
+        padding: _pildoraExpandida
+            ? const EdgeInsets.all(16)
+            : const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(_pildoraExpandida ? 20 : 28),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black38,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: cuerpo,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final alertas = context.watch<AlertController>().getAlertasActivas();
-    final polylines = context.watch<MapController>().polylines;
+    final alertas = context.watch<AlertController>().alerts;
+    final mapCtrl = context.watch<MapController>();
+    final polylines = mapCtrl.polylines;
     final atencion = context.watch<AtencionAlertaController>();
 
-        // Marcadores: alertas activas Y en proceso
+    // Único marcador de alerta: la que se está atendiendo. Desaparece al
+    // quedar atendida (confirmación/ruta de hospital).
     final Set<Marker> markers = {};
-
-    for (var a in alertas) {
-      if (a.estado == AlertState.activa) {
-        markers.add(
-          MarcadorFactory.porEstado(
-            a.estado,
-            seleccionada: selectedAlerta?.id == a.id,
-          ).dibujar(
-            id: a.id,
-            posicion: a.position,
-            onTap: () => _onAlertaTapped(a),
-          ),
-        );
-      } else if (a.estado == AlertState.enProceso &&
-          a.id == atencion.selectedAlertaId) {
-        markers.add(
-          MarcadorFactory.porEstado(a.estado).dibujar(
-            id: a.id,
-            posicion: a.position,
-          ),
-        );
+    if (atencion.isEnRuta && !atencion.isEnRutaHospital) {
+      for (final a in alertas) {
+        if (a.id == atencion.selectedAlertaId &&
+            a.estado != AlertState.atendida) {
+          markers.add(
+            MarcadorFactory.porEstado(AlertState.enProceso).dibujar(
+              id: a.id,
+              posicion: a.position,
+            ),
+          );
+          break;
+        }
       }
     }
 
@@ -185,17 +303,6 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mapa de Alertas'),
-        actions: [
-          if (atencion.isEnRuta && atencion.remainingSeconds > 0)
-            IconButton(
-              icon: const Icon(Icons.check_circle),
-              tooltip: 'Finalizar atención',
-              onPressed: _finalizarManualmente,
-            ),
-        ],
-      ),
       body: Stack(
         children: [
           GoogleMap(
@@ -214,202 +321,14 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
             },
           ),
 
-          if (selectedAlerta != null && atencion.selectedAlertaId == null)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: Card(
-                elevation: 8,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded,
-                              color: Colors.orange, size: 32),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  selectedAlerta!.type,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  selectedAlerta!.description,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: _cancelarSeleccion,
-                          ),
-                        ],
-                      ),
-                      GaleriaFotosAlerta(
-                        fotos: selectedAlerta!.fotos,
-                        altura: 72,
-                        mostrarTitulo: false,
-                        padding: const EdgeInsets.only(top: 12),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _cancelarSeleccion,
-                              child: const Text('Cancelar'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton.icon(
-                              onPressed: _atenderAlerta,
-                              icon: const Icon(Icons.local_hospital),
-                              label: const Text('Atender'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
           if (atencion.isEnRuta && atencion.remainingSeconds > 0)
             Positioned(
-              top: 16,
+              top: 8,
               left: 16,
               right: 16,
-              child: Card(
-                color: atencion.isEnRutaHospital
-                    ? Colors.purple.shade100
-                    : Colors.orange.shade100,
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: atencion.isEnRutaHospital
-                                  ? Colors.purple
-                                  : Colors.orange,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              atencion.isEnRutaHospital
-                                  ? Icons.local_hospital
-                                  : Icons.directions_car,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  atencion.isEnRutaHospital
-                                      ? 'En camino al hospital ${atencion.hospitalDestino!.nombre}'
-                                      : 'En ruta hacia la alerta',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Sigue la línea azul en el mapa',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (!atencion.isEnRutaHospital)
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              tooltip: 'Cancelar',
-                              onPressed: _cancelarRuta,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // TEMPORIZADOR VISUAL
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.timer,
-                                color: atencion.isEnRutaHospital
-                                    ? Colors.purple
-                                    : Colors.orange),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Tiempo estimado de llegada: ${atencion.remainingSeconds} seg',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // BARRA DE PROGRESO
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: atencion.remainingSeconds /
-                              (atencion.isEnRutaHospital
-                                  ? AtencionAlertaController
-                                      .duracionTrasladoHospitalSegundos
-                                  : AtencionAlertaController
-                                      .duracionSimulacionSegundos),
-                          backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            atencion.isEnRutaHospital
-                                ? Colors.purple
-                                : Colors.orange,
-                          ),
-                          minHeight: 8,
-                        ),
-                      ),
-                    ],
-                  ),
+              child: SafeArea(
+                child: Center(
+                  child: _pildoraNavegacion(atencion, mapCtrl),
                 ),
               ),
             ),
@@ -510,26 +429,28 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
             ),
 
-          if (alertas.isEmpty && !atencion.isEnRuta && !atencion.isLoading)
+          if (!atencion.isEnRuta && !atencion.isLoading)
             const Positioned(
-              top: 16,
+              top: 8,
               left: 16,
               right: 16,
-              child: Card(
+              child: SafeArea(
+                child: Card(
                 child: Padding(
                   padding: EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle, color: Colors.green),
+                      Icon(Icons.info_outline, color: Colors.blueGrey),
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'No hay alertas activas en este momento',
+                          'No estás atendiendo ninguna alerta. Ve a la pestaña Alertas para tomar una.',
                           style: TextStyle(fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
                   ),
+                ),
                 ),
               ),
             ),

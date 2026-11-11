@@ -37,10 +37,16 @@ class UsuarioDetalleAlertaScreen extends StatelessWidget {
             _buildInfoCard(
               icon: Icons.info_outline,
               title: 'Estado',
-              content: alerta.estado.name,
-              color: alerta.estado == AlertState.activa
-                  ? Colors.orange
-                  : Colors.green,
+              content: switch (alerta.estado) {
+                AlertState.activa => 'Activa',
+                AlertState.enProceso => 'En proceso',
+                AlertState.atendida => 'Atendida',
+              },
+              color: switch (alerta.estado) {
+                AlertState.activa => Colors.red,
+                AlertState.enProceso => Colors.orange,
+                AlertState.atendida => Colors.green,
+              },
             ),
             const SizedBox(height: 12),
             _buildInfoCard(

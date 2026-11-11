@@ -41,6 +41,64 @@ class FirestoreService implements IDatabaseService{
         .update({'fotos': FieldValue.arrayUnion(urls)});
   }
 
+  Future<TomarAlertaResultado> tomarAlerta({
+    required String alertaId,
+    required String ambulanciaId,
+  }) async {
+    final alertaRef = _db.collection('alertas').doc(alertaId);
+    final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
+
+    return _db.runTransaction<TomarAlertaResultado>((tx) async {
+      final alertaSnap = await tx.get(alertaRef);
+      final ambSnap = await tx.get(ambRef);
+
+      if (!alertaSnap.exists) return TomarAlertaResultado.yaTomada;
+      final alerta = alertaSnap.data()!;
+      if (alerta['estado'] != AlertState.activa.name ||
+          alerta['ambulanciaAsignada'] != null) {
+        return TomarAlertaResultado.yaTomada;
+      }
+
+      if (ambSnap.exists && ambSnap.data()!['currentAlertaId'] != null) {
+        return TomarAlertaResultado.ambulanciaOcupada;
+      }
+
+      tx.update(alertaRef, {
+        'estado': AlertState.enProceso.name,
+        'ambulanciaAsignada': ambulanciaId,
+      });
+      tx.update(ambRef, {'currentAlertaId': alertaId});
+      return TomarAlertaResultado.ok;
+    });
+  }
+
+  Future<void> liberarAlerta({
+    required String alertaId,
+    required String ambulanciaId,
+  }) async {
+    final alertaRef = _db.collection('alertas').doc(alertaId);
+    final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
+
+    await _db.runTransaction((tx) async {
+      final alertaSnap = await tx.get(alertaRef);
+
+      if (alertaSnap.exists) {
+        final alerta = alertaSnap.data()!;
+        // Solo revierte si la alerta sigue tomada por esta ambulancia;
+        // si ya fue finalizada (atendida) no se toca.
+        if (alerta['estado'] == AlertState.enProceso.name &&
+            alerta['ambulanciaAsignada'] == ambulanciaId) {
+          tx.update(alertaRef, {
+            'estado': AlertState.activa.name,
+            'ambulanciaAsignada': null,
+          });
+        }
+      }
+
+      tx.update(ambRef, {'currentAlertaId': null});
+    });
+  }
+
 
 
   //Usuarios

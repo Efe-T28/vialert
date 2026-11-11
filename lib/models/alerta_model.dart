@@ -3,6 +3,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 enum AlertState { activa, enProceso, atendida }
 
+/// Resultado de intentar tomar (reservar) una alerta de forma transaccional.
+enum TomarAlertaResultado { ok, yaTomada, ambulanciaOcupada }
+
 class AlertaModel {
   final String id;
   final String type;
@@ -54,8 +57,9 @@ class AlertaModel {
           : DateTime.now(),
       creadaPorUsuarioId: m['creadaPorUsuarioId'] ?? '',
       creadaPorUid: m['creadaPorUid'] as String?,
-      estado: AlertState.values
-          .firstWhere((e) => e.name == (m['estado'] ?? 'activa')),
+      estado: AlertState.values.firstWhere(
+          (e) => e.name == (m['estado'] ?? 'activa'),
+          orElse: () => AlertState.activa),
       ambulanciaAsignada: m['ambulanciaAsignada'],
       fotos: (m['fotos'] as List?)?.whereType<String>().toList() ?? const [],
     );

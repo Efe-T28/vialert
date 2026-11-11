@@ -20,7 +20,7 @@ class PlantillasFlota {
     _plantillas[normalizar(entidadId)] = base.clone();
   }
 
-  /// Entrega un clon listo para completar. Nunca entrega el original.
+  /// Entrega un clon listo para completar.
   IAmbulanciaBuilder nueva(String entidadId) {
     final base = _plantillas[normalizar(entidadId)];
     if (base == null) {

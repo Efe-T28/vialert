@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../models/ruta_detallada.dart';
 import 'i_maps_service.dart';
 
 /// PROXY: envuelve un [IMapsService] real (p. ej. GoogleDirectionsAdapter)
@@ -31,6 +32,7 @@ class MapsServicesProxy implements IMapsService {
 
   final Map<String, _Entrada<List<LatLng>>> _cacheRutas = {};
   final Map<String, _Entrada<Map<String, dynamic>>> _cacheResumenes = {};
+  final Map<String, _Entrada<RutaDetallada>> _cacheDetalladas = {};
 
   String _clave(LatLng origen, LatLng destino) {
     String r(double v) => v.toStringAsFixed(4);
@@ -65,6 +67,22 @@ class MapsServicesProxy implements IMapsService {
     final resultado = await _real.getRouteSummary(origin, destination);
     if (resultado != null) {
       _cacheResumenes[clave] = _Entrada(resultado);
+    }
+    return resultado;
+  }
+
+  @override
+  Future<RutaDetallada?> getRutaDetallada(
+      LatLng origin, LatLng destination) async {
+    final clave = _clave(origin, destination);
+    final entrada = _cacheDetalladas[clave];
+    if (entrada != null && !entrada.vencida(_tiempoDeVida)) {
+      return entrada.valor;
+    }
+
+    final resultado = await _real.getRutaDetallada(origin, destination);
+    if (resultado != null) {
+      _cacheDetalladas[clave] = _Entrada(resultado);
     }
     return resultado;
   }

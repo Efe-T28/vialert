@@ -59,6 +59,6 @@ class MarcadorFactory {
 
   static IMarcador hospital() => _obtener('hospital', BitmapDescriptor.hueViolet);
 
-  /// Cantidad de flyweights creados (máximo 5).
+  
   static int get totalCreados => _pool.length;
 }

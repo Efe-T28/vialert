@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../controllers/alert_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/ambulancia_controller.dart';
 import '../../services/i_database_service.dart';
@@ -89,6 +90,13 @@ class _AmbulanciaPerfilScreenState extends State<AmbulanciaPerfilScreen> {
 
     if (auth.uid != null) {
       try {
+        // Si queda una alerta tomada sin atender, se devuelve a Pendientes
+        // antes de resetear la ambulancia (evita alertas huérfanas).
+        final alertCtrl = context.read<AlertController>();
+        final tomada = alertCtrl.getAlertaTomadaPor(auth.uid!);
+        if (tomada != null) {
+          await alertCtrl.liberarAlerta(tomada.id, auth.uid!);
+        }
         await ambCtrl.liberarPersonalYResetAmbulancia(auth.uid!);
       } catch (e) {
         // Fallo técnico al liberar personal: ya no se silencia en la

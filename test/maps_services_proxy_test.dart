@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:vialert/models/ruta_detallada.dart';
 import 'package:vialert/services/i_maps_service.dart';
 import 'package:vialert/services/maps_services_proxy.dart';
 
@@ -8,8 +9,10 @@ import 'package:vialert/services/maps_services_proxy.dart';
 class _MapsServiceEspia implements IMapsService {
   int llamadasGetRoute = 0;
   int llamadasGetRouteSummary = 0;
+  int llamadasGetRutaDetallada = 0;
   List<LatLng>? rutaAEntregar;
   Map<String, dynamic>? resumenAEntregar;
+  RutaDetallada? detalladaAEntregar;
 
   @override
   Future<List<LatLng>?> getRoute(LatLng origin, LatLng destination) async {
@@ -22,6 +25,13 @@ class _MapsServiceEspia implements IMapsService {
       LatLng origin, LatLng destination) async {
     llamadasGetRouteSummary++;
     return resumenAEntregar;
+  }
+
+  @override
+  Future<RutaDetallada?> getRutaDetallada(
+      LatLng origin, LatLng destination) async {
+    llamadasGetRutaDetallada++;
+    return detalladaAEntregar;
   }
 }
 
@@ -93,5 +103,21 @@ void main() {
 
     expect(espia.llamadasGetRoute, 1);
     expect(espia.llamadasGetRouteSummary, 1);
+  });
+
+  test('getRutaDetallada también se cachea', () async {
+    espia.detalladaAEntregar = const RutaDetallada(
+      puntos: [origen, destino],
+      duracionSegundos: 300,
+      distanciaMetros: 2500,
+      duracionTexto: '5 min',
+      distanciaTexto: '2.5 km',
+      pasos: [],
+    );
+
+    await proxy.getRutaDetallada(origen, destino);
+    await proxy.getRutaDetallada(origen, destino);
+
+    expect(espia.llamadasGetRutaDetallada, 1);
   });
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../domain/geo_math.dart';
 import '../domain/route_deviation.dart';
+import '../models/ruta_detallada.dart';
 import '../services/i_maps_service.dart';
 import '../services/i_location_service.dart';
 import 'package:flutter/material.dart';
@@ -17,8 +19,25 @@ class MapController extends ChangeNotifier {
   bool _recalculando = false;
   DateTime? _ultimoRecalculo;
 
+  /// Última ruta entregada por Directions (polyline + duración + pasos).
+  /// Se renueva en cada recálculo por desvío.
+  RutaDetallada? rutaActual;
+  int _pasoActualIdx = 0;
+
   static const double _desviacionMaximaMetros = 30.0;
   static const Duration _intervaloMinimoRecalculo = Duration(seconds: 10);
+  static const double _metrosParaCompletarPaso = 25.0;
+
+  /// Duración real estimada de la ruta vigente, en segundos.
+  int? get etaSegundos => rutaActual?.duracionSegundos;
+
+  /// Próximo giro/instrucción de navegación, o null si no hay ruta o ya
+  /// se recorrieron todos los pasos.
+  PasoRuta? get proximoPaso {
+    final pasos = rutaActual?.pasos;
+    if (pasos == null || _pasoActualIdx >= pasos.length) return null;
+    return pasos[_pasoActualIdx];
+  }
 
     MapController({
     required IMapsService mapsService,
@@ -39,12 +58,14 @@ class MapController extends ChangeNotifier {
   }
 
   Future<void> createRoute(LatLng origin, LatLng destination) async {
-    final points = await _mapsService.getRoute(origin, destination);
-    if (points == null) return;
+    final ruta = await _mapsService.getRutaDetallada(origin, destination);
+    if (ruta == null) return;
+    rutaActual = ruta;
+    _pasoActualIdx = 0;
     polylines.clear();
     polylines.add(Polyline(
       polylineId: const PolylineId('route'),
-      points: points,
+      points: ruta.puntos,
       width: 6,
       color: const Color(0xFF2196F3),
     ));
@@ -68,6 +89,9 @@ class MapController extends ChangeNotifier {
 
   Future<void> _onPosicionActualizada(LatLng posicion) async {
     if (_destinoActual == null || polylines.isEmpty) return;
+
+    _avanzarPaso(posicion);
+
     if (_recalculando) return;
 
     final ahora = DateTime.now();
@@ -86,10 +110,27 @@ class MapController extends ChangeNotifier {
     _recalculando = false;
   }
 
+  /// Marca como completados los pasos cuyo final ya se alcanzó, para que
+  /// [proximoPaso] apunte siempre a la instrucción vigente.
+  void _avanzarPaso(LatLng posicion) {
+    final pasos = rutaActual?.pasos;
+    if (pasos == null) return;
+    var avanzo = false;
+    while (_pasoActualIdx < pasos.length &&
+        distanciaMetros(posicion, pasos[_pasoActualIdx].posicionFin) <
+            _metrosParaCompletarPaso) {
+      _pasoActualIdx++;
+      avanzo = true;
+    }
+    if (avanzo) notifyListeners();
+  }
+
   void clearRoute() {
     _positionSub?.cancel();
     _positionSub = null;
     _destinoActual = null;
+    rutaActual = null;
+    _pasoActualIdx = 0;
     polylines.clear();
     notifyListeners();
   }

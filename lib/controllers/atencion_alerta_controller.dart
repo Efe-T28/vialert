@@ -6,6 +6,7 @@ import 'map_controller.dart';
 import 'hospital_controller.dart';
 import '../models/alerta_model.dart';
 import '../models/hospital_model.dart';
+import '../models/ruta_detallada.dart';
 class AtencionAlertaController extends ChangeNotifier {
   final AlertController _alertController;
   final AmbulanciaController _ambulanciaController;
@@ -17,19 +18,47 @@ class AtencionAlertaController extends ChangeNotifier {
     this._ambulanciaController,
     this._mapController,
     this._hospitalController,
-  );
+  ) {
+    // Cuando la ruta se recalcula por desvío, el ETA real cambia.
+    _mapController.addListener(_onRutaActualizada);
+  }
 
+  /// Respaldo si Directions no devuelve ruta (sin red / sin API key).
   static const int duracionSimulacionSegundos = 15;
   static const int duracionTrasladoHospitalSegundos = 15;
 
   String? selectedAlertaId;
   int remainingSeconds = 0;
+
+  /// Duración total del tramo vigente (para la barra de progreso). Se
+  /// resetea cuando la ruta se recalcula.
+  int duracionTotalSegundos = duracionSimulacionSegundos;
   String? lastError;
   HospitalModel? hospitalPropuesto;
   HospitalModel? hospitalDestino;
 
   Timer? _countdownTimer;
   String? _uid;
+  RutaDetallada? _rutaVista;
+
+  /// Toma el ETA real de la ruta vigente; si no hay, usa el respaldo.
+  void _adoptarEta(int respaldoSegundos) {
+    _rutaVista = _mapController.rutaActual;
+    remainingSeconds = _mapController.etaSegundos ?? respaldoSegundos;
+    duracionTotalSegundos = remainingSeconds;
+  }
+
+  void _onRutaActualizada() {
+    final ruta = _mapController.rutaActual;
+    if (ruta == null || !isEnRuta) return;
+    if (identical(ruta, _rutaVista)) return;
+
+    // Ruta recalculada: refrescar el ETA sin tocar el resto del estado.
+    _rutaVista = ruta;
+    remainingSeconds = ruta.duracionSegundos;
+    duracionTotalSegundos = ruta.duracionSegundos;
+    notifyListeners();
+  }
 
   bool get isLoading => selectedAlertaId == 'loading';
   bool get isEnRuta =>
@@ -37,14 +66,35 @@ class AtencionAlertaController extends ChangeNotifier {
   bool get isEnRutaHospital => hospitalDestino != null;
   bool get esperandoConfirmacionHospital => hospitalPropuesto != null;
 
-  Future<void> atenderAlerta(AlertaModel alerta, String uid) async {
+  /// Reserva la alerta para esta ambulancia (transaccional). No inicia
+  /// ruta ni timer: eso ocurre recién en [iniciarAtencion].
+  Future<TomarAlertaResultado> tomarAlerta(
+      AlertaModel alerta, String uid) async {
+    // Pre-guard local: lee el stream, así funciona incluso tras reiniciar
+    // la app con una alerta ya tomada.
+    if (_alertController.getAlertaTomadaPor(uid) != null) {
+      return TomarAlertaResultado.ambulanciaOcupada;
+    }
+    return _alertController.tomarAlerta(alerta.id, uid);
+  }
+
+  /// Suelta una alerta tomada que nunca inició ruta (vuelve a activa).
+  Future<void> soltarAlerta(AlertaModel alerta, String uid) =>
+      _alertController.liberarAlerta(alerta.id, uid);
+
+  Future<void> iniciarAtencion(AlertaModel alerta, String uid) async {
+    // Solo se puede atender una alerta ya tomada por esta ambulancia.
+    if (alerta.estado != AlertState.enProceso ||
+        alerta.ambulanciaAsignada != uid) {
+      return;
+    }
+
     selectedAlertaId = 'loading';
     lastError = null;
     _uid = uid;
     notifyListeners();
 
     try {
-      await _alertController.asignarAmbulanciaAAlerta(alerta.id, uid);
       await _ambulanciaController.setEstado(uid, 'enRuta');
 
       // Generar ruta desde la ubicación GPS real, con recálculo automático
@@ -54,7 +104,7 @@ class AtencionAlertaController extends ChangeNotifier {
       }
 
       selectedAlertaId = alerta.id;
-      remainingSeconds = duracionSimulacionSegundos;
+      _adoptarEta(duracionSimulacionSegundos);
       notifyListeners();
 
       _startCountdown(finalizarAtencion);
@@ -85,6 +135,9 @@ class AtencionAlertaController extends ChangeNotifier {
 
     final alertaId = selectedAlertaId!;
     await _alertController.marcarComoAtendida(alertaId);
+    if (_uid != null) {
+      await _ambulanciaController.limpiarAlertaActual(_uid!);
+    }
     _mapController.clearRoute();
 
     final miUbicacion = await _mapController.getMyLocation();
@@ -124,7 +177,7 @@ class AtencionAlertaController extends ChangeNotifier {
       await _mapController.iniciarSeguimientoRuta(miUbicacion, hospital.position);
     }
 
-    remainingSeconds = duracionTrasladoHospitalSegundos;
+    _adoptarEta(duracionTrasladoHospitalSegundos);
     notifyListeners();
 
     _startCountdown(_finalizarTrasladoHospital);
@@ -171,9 +224,16 @@ class AtencionAlertaController extends ChangeNotifier {
     await finalizarAtencion();
   }
 
-  void cancelarRuta() {
+  Future<void> cancelarRuta() async {
     _countdownTimer?.cancel();
     _mapController.clearRoute();
+
+    // Devuelve la alerta a activa para que reaparezca en Pendientes.
+    if (isEnRuta && _uid != null) {
+      await _alertController.liberarAlerta(selectedAlertaId!, _uid!);
+      await _ambulanciaController.setEstado(_uid!, 'habilitada');
+    }
+
     selectedAlertaId = null;
     remainingSeconds = 0;
     _uid = null;
@@ -184,6 +244,7 @@ class AtencionAlertaController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _mapController.removeListener(_onRutaActualizada);
     _countdownTimer?.cancel();
     super.dispose();
   }
