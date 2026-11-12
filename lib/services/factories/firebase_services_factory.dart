@@ -13,7 +13,11 @@ import '../i_maps_service.dart';
 import 'app_services_factory.dart';
 import '../../config/app_config.dart';
 import '../firebase_storage_adapter.dart';
+import '../flutter_tts_service.dart';
+import '../i_notification_service.dart';
 import '../i_storage_service.dart';
+import '../i_tts_service.dart';
+import '../local_notification_service.dart';
 import '../mocks/mock_storage_service.dart';
 
 /// Familia de producción: Firebase + Geolocator + Google Directions.
@@ -42,4 +46,11 @@ class FirebaseServicesFactory extends AppServicesFactory {
   IStorageService createStorageService() => AppConfig.fotosSimuladas
       ? MockStorageService()
       : FirebaseStorageAdapter();
+
+  @override
+  INotificationService createNotificationService() =>
+      LocalNotificationService();
+
+  @override
+  ITtsService createTtsService() => FlutterTtsService();
 }

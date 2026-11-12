@@ -1,7 +1,4 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -135,20 +132,7 @@ class _AmbulanciaAlertasScreenState extends State<AmbulanciaAlertasScreen> {
       _mostrarSnack('Error: ${atencion.lastError}', Colors.red, Icons.error);
       return;
     }
-    await _solicitarPermisoIsla();
     widget.onIrAlMapa();
-  }
-
-  // Una sola vez por sesión: sin este permiso la isla de navegación no
-  // puede mostrarse al salir de la app (la app funciona igual sin él).
-  static bool _permisoIslaPedido = false;
-
-  Future<void> _solicitarPermisoIsla() async {
-    if (kIsWeb || !Platform.isAndroid || _permisoIslaPedido) return;
-    _permisoIslaPedido = true;
-    if (!await FlutterOverlayWindow.isPermissionGranted()) {
-      await FlutterOverlayWindow.requestPermission();
-    }
   }
 
   @override

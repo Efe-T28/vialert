@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Traduce el campo `maneuver` de Google Directions al icono de flecha
-/// correspondiente. Compartido por la píldora del mapa y la isla overlay.
+/// correspondiente, usado por la píldora de navegación del mapa.
 IconData iconoManiobra(String maniobra) => switch (maniobra) {
       'turn-right' => Icons.turn_right,
       'turn-left' => Icons.turn_left,

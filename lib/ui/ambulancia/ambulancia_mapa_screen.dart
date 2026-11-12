@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/alert_controller.dart';
 import '../../controllers/map_controller.dart';
 import '../../controllers/atencion_alerta_controller.dart';
+import '../../controllers/guia_voz.dart';
 import '../../models/alerta_model.dart';
 import '../../models/ruta_detallada.dart';
 import '../../domain/flyweight/marcador_flyweight.dart';
@@ -198,25 +199,41 @@ class _AmbulanciaMapaScreenState extends State<AmbulanciaMapaScreen> {
               ),
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   if (!atencion.isEnRutaHospital)
-                    TextButton(
+                    IconButton(
                       onPressed: _cancelarRuta,
-                      child: Text(
-                        'Salir de la navegación',
-                        style: TextStyle(color: Colors.lightBlue.shade200),
+                      tooltip: 'Salir de la navegación',
+                      icon: Icon(Icons.close,
+                          color: Colors.lightBlue.shade200, size: 28),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white10,
                       ),
-                    )
-                  else
-                    const SizedBox.shrink(),
-                  TextButton.icon(
+                    ),
+                  IconButton(
+                    onPressed: () => context.read<GuiaVoz>().alternar(),
+                    tooltip: context.watch<GuiaVoz>().activada
+                        ? 'Silenciar guía de voz'
+                        : 'Activar guía de voz',
+                    icon: Icon(
+                      context.watch<GuiaVoz>().activada
+                          ? Icons.volume_up
+                          : Icons.volume_off,
+                      color: Colors.white70,
+                      size: 28,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white10,
+                    ),
+                  ),
+                  IconButton(
                     onPressed: _finalizarManualmente,
+                    tooltip: 'Finalizar atención',
                     icon: const Icon(Icons.check_circle,
-                        color: Colors.lightGreenAccent, size: 18),
-                    label: const Text(
-                      'Finalizar atención',
-                      style: TextStyle(color: Colors.lightGreenAccent),
+                        color: Colors.lightGreenAccent, size: 28),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white10,
                     ),
                   ),
                 ],

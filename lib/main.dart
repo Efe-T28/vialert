@@ -11,29 +11,21 @@ import 'controllers/map_controller.dart';
 import 'controllers/atencion_alerta_controller.dart';
 import 'controllers/flota_controller.dart';
 import 'controllers/hospital_controller.dart';
+import 'controllers/guia_voz.dart';
+import 'controllers/notificador_alertas.dart';
 import 'services/i_auth_service.dart';
 import 'services/i_database_service.dart';
 import 'services/i_location_service.dart';
 import 'services/i_maps_service.dart';
+import 'services/i_notification_service.dart';
 import 'services/i_storage_service.dart';
+import 'services/i_tts_service.dart';
 import 'services/factories/app_services_factory.dart';
 import 'services/factories/firebase_services_factory.dart';
 // import 'services/factories/mock_services_factory.dart';
 import 'domain/repositories/conductores_repository.dart';
 import 'domain/repositories/paramedicos_repository.dart';
 import 'ui/app.dart';
-import 'ui/ambulancia/isla_navegacion_overlay.dart';
-
-/// Entrypoint del overlay "isla de navegación" (flutter_overlay_window):
-/// corre en su propio engine cuando la ambulancia sale de la app en ruta.
-@pragma("vm:entry-point")
-void overlayMain() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: IslaNavegacionOverlay(),
-  ));
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +47,9 @@ void main() async {
             create: (_) => servicios.createMapsService()),
         Provider<IStorageService>(
             create: (_) => servicios.createStorageService()),
+        Provider<INotificationService>(
+            create: (_) => servicios.createNotificationService()),
+        Provider<ITtsService>(create: (_) => servicios.createTtsService()),
         ChangeNotifierProvider<AuthController>(
             create: (ctx) => AuthController(
                   authService: ctx.read<IAuthService>(),
@@ -89,6 +84,18 @@ void main() async {
                   ctx.read<AmbulanciaController>(),
                   ctx.read<MapController>(),
                   ctx.read<HospitalController>(),
+                )),
+        Provider<NotificadorAlertas>(
+            create: (ctx) => NotificadorAlertas(
+                  ctx.read<AlertController>(),
+                  ctx.read<INotificationService>(),
+                )),
+        ChangeNotifierProvider<GuiaVoz>(
+            create: (ctx) => GuiaVoz(
+                  ctx.read<AtencionAlertaController>(),
+                  ctx.read<MapController>(),
+                  ctx.read<ILocationService>(),
+                  ctx.read<ITtsService>(),
                 )),
       ],
       child: const MyApp(),
