@@ -78,21 +78,40 @@ void main() {
     expect(avisos.mostradas, hasLength(1));
   });
 
-  test('una alerta vieja (fuera de la ventana de frescura) no se notifica',
-      () async {
+  test(
+      'una alerta nueva con reloj/zona horaria distinta (createdAt desfasado) '
+      'igual se notifica', () async {
     await notificador.iniciar();
+    await propagar();
 
     await db.crearAlerta(AlertaModel(
-      id: 'vieja-1',
+      id: 'desfasada-1',
       type: 'Accidente',
-      description: 'alerta antigua',
+      description: 'creada en otro dispositivo',
       position: pos,
-      createdAt: DateTime.now()
-          .subtract(NotificadorAlertas.ventanaFrescura * 2),
+      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
       creadaPorUsuarioId: 'Usuario Prueba',
     ));
     await propagar();
 
-    expect(avisos.mostradas, isEmpty);
+    expect(avisos.mostradas, hasLength(1));
+    expect(avisos.mostradas.single.id, 'desfasada-1');
+  });
+
+  test('createdAt se guarda en UTC y se lee en hora local', () {
+    final local = DateTime(2026, 11, 15, 10, 30);
+    final alerta = AlertaModel(
+      id: 'x',
+      type: 'Accidente',
+      description: '',
+      position: pos,
+      createdAt: local,
+      creadaPorUsuarioId: 'u',
+    );
+    final mapa = alerta.toMap();
+    expect(mapa['createdAt'], endsWith('Z'));
+    final leida = AlertaModel.fromMap('x', mapa);
+    expect(leida.createdAt, local);
+    expect(leida.createdAt.isUtc, isFalse);
   });
 }

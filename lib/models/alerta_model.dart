@@ -36,7 +36,8 @@ class AlertaModel {
         'description': description,
         'lat': position.latitude,
         'lng': position.longitude,
-        'createdAt': createdAt.toIso8601String(),
+        // En UTC (con 'Z') para que se interprete igual en cualquier zona horaria.
+        'createdAt': createdAt.toUtc().toIso8601String(),
         'creadaPorUsuarioId': creadaPorUsuarioId,
         'creadaPorUid': creadaPorUid,
         'estado': estado.name,
@@ -53,7 +54,7 @@ class AlertaModel {
       description: m['description'] ?? '',
       position: LatLng(lat, lng),
       createdAt: m['createdAt'] != null
-          ? DateTime.parse(m['createdAt'])
+          ? DateTime.parse(m['createdAt']).toLocal()
           : DateTime.now(),
       creadaPorUsuarioId: m['creadaPorUsuarioId'] ?? '',
       creadaPorUid: m['creadaPorUid'] as String?,
@@ -64,4 +65,4 @@ class AlertaModel {
       fotos: (m['fotos'] as List?)?.whereType<String>().toList() ?? const [],
     );
   }
-}
+}

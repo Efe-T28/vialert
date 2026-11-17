@@ -8,6 +8,11 @@
 # The following line activates a set of recommended lints for Flutter apps,
 # packages, and plugins designed to encourage good coding practices.
 analyzer:
+  errors:
+    # Template Method: en Dart no existen métodos `final`; @nonVirtual +
+    # este error impiden que una subclase sobrescriba el método plantilla.
+    invalid_override_of_non_virtual_member: error
+    invalid_use_of_protected_member: error
   exclude:
     - build/**
     - android/**

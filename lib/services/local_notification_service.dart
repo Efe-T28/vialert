@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'i_notification_service.dart';
 
@@ -31,10 +32,13 @@ class LocalNotificationService implements INotificationService {
     );
 
     // Android 13+: permiso runtime de notificaciones.
-    await _plugin
+    final permitido = await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
+    if (permitido == false) {
+      debugPrint('[Notificaciones] Permiso de notificaciones denegado');
+    }
   }
 
   @override

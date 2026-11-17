@@ -29,8 +29,12 @@ class AlertController extends ChangeNotifier {
   final _uuid = const Uuid();
   final Map<String, SubidaFotos> _subidas = {};
 
+  /// `true` una vez recibido el primer snapshot de alertas.
+  bool cargado = false;
+
   AlertController(this._fs, this._storage) {
     _fs.streamAlertas().listen((list) {
+      cargado = true;
       alerts
         ..clear()
         ..addAll(list);
@@ -181,4 +185,4 @@ class AlertController extends ChangeNotifier {
     }
     return null;
   }
-}
+}
