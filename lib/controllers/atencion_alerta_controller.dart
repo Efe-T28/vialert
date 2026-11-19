@@ -5,8 +5,11 @@ import 'ambulancia_controller.dart';
 import 'map_controller.dart';
 import 'hospital_controller.dart';
 import '../models/alerta_model.dart';
+import '../models/evento_alerta_model.dart';
 import '../models/hospital_model.dart';
 import '../models/ruta_detallada.dart';
+
+
 class AtencionAlertaController extends ChangeNotifier {
   final AlertController _alertController;
   final AmbulanciaController _ambulanciaController;
@@ -21,6 +24,8 @@ class AtencionAlertaController extends ChangeNotifier {
   ) {
     // Cuando la ruta se recalcula por desvío, el ETA real cambia.
     _mapController.addListener(_onRutaActualizada);
+    // Instrumentación: cada recálculo por desvío se cuenta y queda en el log.
+    _mapController.onRecalculoPorDesvio = _onRecalculoPorDesvio;
   }
 
   /// Respaldo si Directions no devuelve ruta (sin red / sin API key).
@@ -41,6 +46,11 @@ class AtencionAlertaController extends ChangeNotifier {
   String? _uid;
   RutaDetallada? _rutaVista;
 
+  /// `true` si en esta atención se usó el contador de respaldo en vez de una
+  /// ruta real (sin red / sin API key). Esas alertas se marcan `simulada`
+  /// para que el panel no las cuente en los KPI de tiempo.
+  bool _usoEtaRespaldo = false;
+
   /// Toma el ETA real de la ruta vigente; si no hay, usa el respaldo.
   void _adoptarEta(int respaldoSegundos) {
     _rutaVista = _mapController.rutaActual;
@@ -58,6 +68,30 @@ class AtencionAlertaController extends ChangeNotifier {
     remainingSeconds = ruta.duracionSegundos;
     duracionTotalSegundos = ruta.duracionSegundos;
     notifyListeners();
+  }
+
+  /// Cuenta el recálculo y lo deja en el log de eventos. Durante el traslado
+  /// al hospital solo se registra el evento: `recalculos` mide el
+  /// cumplimiento de la ruta hacia la alerta.
+  void _onRecalculoPorDesvio() {
+    final alertaId = selectedAlertaId;
+    final uid = _uid;
+    if (alertaId == null || alertaId == 'loading' || uid == null) return;
+
+    final ruta = _mapController.rutaActual;
+    final meta = <String, dynamic>{
+      'tramo': isEnRutaHospital ? 'hospital' : 'alerta',
+      if (ruta != null) 'etaSeg': ruta.duracionSegundos,
+      if (ruta != null) 'distanciaM': ruta.distanciaMetros,
+    };
+
+    if (isEnRutaHospital) {
+      _alertController.registrarEvento(alertaId, TipoEventoAlerta.recalculo,
+          ambulanciaId: uid, meta: meta);
+    } else {
+      _alertController.registrarRecalculoRuta(alertaId,
+          ambulanciaId: uid, meta: meta);
+    }
   }
 
   bool get isLoading => selectedAlertaId == 'loading';
@@ -92,6 +126,7 @@ class AtencionAlertaController extends ChangeNotifier {
     selectedAlertaId = 'loading';
     lastError = null;
     _uid = uid;
+    _usoEtaRespaldo = false;
     notifyListeners();
 
     try {
@@ -104,8 +139,23 @@ class AtencionAlertaController extends ChangeNotifier {
       }
 
       selectedAlertaId = alerta.id;
+      _usoEtaRespaldo = _mapController.etaSegundos == null;
+      final rutaInicial = _mapController.rutaActual;
       _adoptarEta(duracionSimulacionSegundos);
       notifyListeners();
+
+      // Hito: el equipo salió hacia la alerta (con ETA y distancia previstos).
+      // Queda unos segundos después del toque: lo que tardó el GPS y la ruta.
+      _alertController.registrarHito(
+        alerta.id,
+        HitoAlerta.rutaIniciada,
+        ambulanciaId: uid,
+        campos: {
+          if (!_usoEtaRespaldo) 'etaInicialSeg': rutaInicial?.duracionSegundos,
+          if (rutaInicial != null) 'distanciaInicialM': rutaInicial.distanciaMetros,
+        },
+        meta: {if (_usoEtaRespaldo) 'etaRespaldo': true},
+      );
 
       _startCountdown(finalizarAtencion);
     } catch (e) {
@@ -130,11 +180,21 @@ class AtencionAlertaController extends ChangeNotifier {
     });
   }
 
-  Future<void> finalizarAtencion() async {
+  /// [origen] indica cómo se declaró la llegada: 'temporizador' (se agotó el
+  /// ETA) o 'manual' (la persona pulsó finalizar). Hoy la llegada no se
+  /// detecta por GPS, así que el panel debe distinguirlas.
+  Future<void> finalizarAtencion({String origen = 'temporizador'}) async {
     if (selectedAlertaId == null || selectedAlertaId == 'loading') return;
 
     final alertaId = selectedAlertaId!;
-    await _alertController.marcarComoAtendida(alertaId);
+    _alertController.registrarHito(
+      alertaId,
+      HitoAlerta.llegada,
+      ambulanciaId: _uid,
+      campos: {if (_usoEtaRespaldo) 'simulada': true},
+      meta: {'origen': origen},
+    );
+    await _alertController.marcarComoAtendida(alertaId, ambulanciaId: _uid);
     if (_uid != null) {
       await _ambulanciaController.limpiarAlertaActual(_uid!);
     }
@@ -145,6 +205,12 @@ class AtencionAlertaController extends ChangeNotifier {
         miUbicacion != null ? _hospitalController.masCercanoA(miUbicacion) : null;
 
     if (hospital != null) {
+      _alertController.registrarEvento(
+        alertaId,
+        TipoEventoAlerta.trasladoPropuesto,
+        ambulanciaId: _uid,
+        meta: {'hospitalId': hospital.id, 'hospitalNombre': hospital.nombre},
+      );
       hospitalPropuesto = hospital;
       remainingSeconds = 0;
       notifyListeners();
@@ -168,6 +234,18 @@ class AtencionAlertaController extends ChangeNotifier {
     hospitalDestino = hospital;
     hospitalPropuesto = null;
 
+    if (isEnRuta) {
+      _alertController.registrarHito(
+        selectedAlertaId!,
+        HitoAlerta.trasladoIniciado,
+        ambulanciaId: _uid,
+        campos: {
+          'hospitalDestinoId': hospital.id,
+          'hospitalDestinoNombre': hospital.nombre,
+        },
+      );
+    }
+
     if (_uid != null) {
       await _ambulanciaController.setEstado(_uid!, 'enRutaHospital');
     }
@@ -177,6 +255,7 @@ class AtencionAlertaController extends ChangeNotifier {
       await _mapController.iniciarSeguimientoRuta(miUbicacion, hospital.position);
     }
 
+    if (_mapController.etaSegundos == null) _usoEtaRespaldo = true;
     _adoptarEta(duracionTrasladoHospitalSegundos);
     notifyListeners();
 
@@ -184,6 +263,16 @@ class AtencionAlertaController extends ChangeNotifier {
   }
 
   Future<void> rechazarTrasladoHospital() async {
+    if (isEnRuta) {
+      final propuesto = hospitalPropuesto;
+      _alertController.registrarEvento(
+        selectedAlertaId!,
+        TipoEventoAlerta.trasladoRechazado,
+        ambulanciaId: _uid,
+        meta: {if (propuesto != null) 'hospitalId': propuesto.id},
+      );
+    }
+
     if (_uid != null) {
       await _ambulanciaController.setEstado(_uid!, 'habilitada');
     }
@@ -196,7 +285,17 @@ class AtencionAlertaController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _finalizarTrasladoHospital() async {
+  Future<void> _finalizarTrasladoHospital({String origen = 'temporizador'}) async {
+    if (isEnRuta) {
+      _alertController.registrarHito(
+        selectedAlertaId!,
+        HitoAlerta.trasladoFinalizado,
+        ambulanciaId: _uid,
+        campos: {if (_usoEtaRespaldo) 'simulada': true},
+        meta: {'origen': origen},
+      );
+    }
+
     if (_uid != null) {
       await _ambulanciaController.setEstado(_uid!, 'habilitada');
     }
@@ -214,14 +313,14 @@ class AtencionAlertaController extends ChangeNotifier {
   Future<void> finalizarManualmente() async {
     if (isEnRutaHospital) {
       _countdownTimer?.cancel();
-      await _finalizarTrasladoHospital();
+      await _finalizarTrasladoHospital(origen: 'manual');
       return;
     }
 
     if (selectedAlertaId == null || selectedAlertaId == 'loading') return;
 
     _countdownTimer?.cancel();
-    await finalizarAtencion();
+    await finalizarAtencion(origen: 'manual');
   }
 
   Future<void> cancelarRuta() async {
@@ -245,6 +344,7 @@ class AtencionAlertaController extends ChangeNotifier {
   @override
   void dispose() {
     _mapController.removeListener(_onRutaActualizada);
+    _mapController.onRecalculoPorDesvio = null;
     _countdownTimer?.cancel();
     super.dispose();
   }

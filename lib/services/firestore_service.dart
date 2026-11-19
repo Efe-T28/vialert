@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/alerta_model.dart';
 import '../models/ambulancia_model.dart';
 import '../models/conductor_model.dart';
+import '../models/evento_alerta_model.dart';
 import '../models/hospital_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/usuario_model.dart';
@@ -12,6 +16,51 @@ import './i_database_service.dart';
 class FirestoreService implements IDatabaseService{
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // ---------- Instrumentación: utilidades ----------
+
+  /// Campos de la alerta que agrega la instrumentación (para el modo básico).
+  static const _camposNuevosAlerta = {
+    'createdAtServer', 'prioridad', 'tomadaAt', 'rutaIniciadaAt', 'llegadaAt',
+    'atendidaAt', 'trasladoIniciadoAt', 'trasladoFinalizadoAt',
+    'hospitalDestinoId', 'hospitalDestinoNombre', 'conductorId',
+    'paramedicoId', 'etaInicialSeg', 'distanciaInicialM', 'recalculos',
+    'liberaciones', 'simulada',
+  };
+
+  /// Ejecuta [completo] (con los campos nuevos). Si Firestore lo rechaza por
+  /// permisos —normalmente porque las reglas aún no se actualizaron— repite
+  /// la operación en modo [basico], con exactamente los campos de antes. Así
+  /// una regla pendiente nunca impide tomar, liberar o crear una alerta.
+  Future<T> _conRespaldo<T>(
+    String nombre,
+    Future<T> Function() completo,
+    Future<T> Function() basico,
+  ) async {
+    try {
+      return await completo();
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+      debugPrint('[instrumentacion] $nombre: permiso denegado con los campos '
+          'nuevos; se reintenta en modo básico. Revisa firestore.rules.');
+      return basico();
+    }
+  }
+
+  CollectionReference<Map<String, dynamic>> _eventosCol(String alertaId) =>
+      _db.collection('alertas').doc(alertaId).collection('eventos');
+
+  Map<String, dynamic> _datosEvento(
+    TipoEventoAlerta tipo,
+    String? ambulanciaId,
+    Map<String, dynamic> meta,
+  ) =>
+      {
+        'tipo': tipo.valor,
+        'ts': FieldValue.serverTimestamp(),
+        'ambulanciaId': ambulanciaId,
+        'meta': meta,
+      };
+
   //Alertas
   Stream<List<AlertaModel>> streamAlertas() {
     return _db.collection('alertas').snapshots().map((snap) => snap.docs
@@ -20,7 +69,29 @@ class FirestoreService implements IDatabaseService{
   }
 
   Future<void> crearAlerta(AlertaModel alerta) async {
-    await _db.collection('alertas').doc(alerta.id).set(alerta.toMap());
+    final ref = _db.collection('alertas').doc(alerta.id);
+    var instrumentada = true;
+    await _conRespaldo<void>(
+      'crearAlerta',
+      () => ref.set({
+        ...alerta.toMap(),
+        'createdAtServer': FieldValue.serverTimestamp(),
+      }),
+      () {
+        instrumentada = false;
+        final basico = alerta.toMap()
+          ..removeWhere((k, _) => _camposNuevosAlerta.contains(k));
+        return ref.set(basico);
+      },
+    );
+    if (instrumentada) {
+      // No se espera: el evento nunca debe retrasar ni tumbar el reporte.
+      unawaited(registrarEvento(
+        alertaId: alerta.id,
+        tipo: TipoEventoAlerta.creada,
+        meta: {if (alerta.prioridad != null) 'prioridad': alerta.prioridad},
+      ));
+    }
   }
 
   Future<void> updateAlerta(String id, Map<String, dynamic> data) async {
@@ -44,6 +115,18 @@ class FirestoreService implements IDatabaseService{
   Future<TomarAlertaResultado> tomarAlerta({
     required String alertaId,
     required String ambulanciaId,
+  }) {
+    return _conRespaldo(
+      'tomarAlerta',
+      () => _tomarAlertaTx(alertaId, ambulanciaId, instrumentar: true),
+      () => _tomarAlertaTx(alertaId, ambulanciaId, instrumentar: false),
+    );
+  }
+
+  Future<TomarAlertaResultado> _tomarAlertaTx(
+    String alertaId,
+    String ambulanciaId, {
+    required bool instrumentar,
   }) async {
     final alertaRef = _db.collection('alertas').doc(alertaId);
     final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
@@ -59,15 +142,33 @@ class FirestoreService implements IDatabaseService{
         return TomarAlertaResultado.yaTomada;
       }
 
-      if (ambSnap.exists && ambSnap.data()!['currentAlertaId'] != null) {
+      final amb = ambSnap.exists ? ambSnap.data()! : null;
+      if (amb != null && amb['currentAlertaId'] != null) {
         return TomarAlertaResultado.ambulanciaOcupada;
       }
+
+      // El personal a bordo se copia a la alerta: la ambulancia lo libera al
+      // terminar y después no habría forma de saber quién atendió.
+      final conductorId = amb?['currentConductorId'] as String?;
+      final paramedicoId = amb?['currentParamedicoId'] as String?;
 
       tx.update(alertaRef, {
         'estado': AlertState.enProceso.name,
         'ambulanciaAsignada': ambulanciaId,
+        if (instrumentar) 'tomadaAt': FieldValue.serverTimestamp(),
+        if (instrumentar && conductorId != null) 'conductorId': conductorId,
+        if (instrumentar && paramedicoId != null) 'paramedicoId': paramedicoId,
       });
       tx.update(ambRef, {'currentAlertaId': alertaId});
+      if (instrumentar) {
+        tx.set(
+          _eventosCol(alertaId).doc(),
+          _datosEvento(TipoEventoAlerta.tomada, ambulanciaId, {
+            if (conductorId != null) 'conductorId': conductorId,
+            if (paramedicoId != null) 'paramedicoId': paramedicoId,
+          }),
+        );
+      }
       return TomarAlertaResultado.ok;
     });
   }
@@ -75,6 +176,18 @@ class FirestoreService implements IDatabaseService{
   Future<void> liberarAlerta({
     required String alertaId,
     required String ambulanciaId,
+  }) {
+    return _conRespaldo(
+      'liberarAlerta',
+      () => _liberarAlertaTx(alertaId, ambulanciaId, instrumentar: true),
+      () => _liberarAlertaTx(alertaId, ambulanciaId, instrumentar: false),
+    );
+  }
+
+  Future<void> _liberarAlertaTx(
+    String alertaId,
+    String ambulanciaId, {
+    required bool instrumentar,
   }) async {
     final alertaRef = _db.collection('alertas').doc(alertaId);
     final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
@@ -91,7 +204,24 @@ class FirestoreService implements IDatabaseService{
           tx.update(alertaRef, {
             'estado': AlertState.activa.name,
             'ambulanciaAsignada': null,
+            if (instrumentar) ...{
+              'liberaciones': FieldValue.increment(1),
+              // Se limpian los datos del intento anterior; el historial queda
+              // en los eventos. `recalculos` se mantiene como acumulado.
+              'tomadaAt': FieldValue.delete(),
+              'rutaIniciadaAt': FieldValue.delete(),
+              'etaInicialSeg': FieldValue.delete(),
+              'distanciaInicialM': FieldValue.delete(),
+              'conductorId': FieldValue.delete(),
+              'paramedicoId': FieldValue.delete(),
+            },
           });
+          if (instrumentar) {
+            tx.set(
+              _eventosCol(alertaId).doc(),
+              _datosEvento(TipoEventoAlerta.liberada, ambulanciaId, const {}),
+            );
+          }
         }
       }
 
@@ -99,6 +229,62 @@ class FirestoreService implements IDatabaseService{
     });
   }
 
+  // ---------- Instrumentación: eventos e hitos ----------
+
+  Future<void> registrarEvento({
+    required String alertaId,
+    required TipoEventoAlerta tipo,
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  }) async {
+    try {
+      await _eventosCol(alertaId).add(_datosEvento(tipo, ambulanciaId, meta));
+    } catch (e) {
+      debugPrint('[instrumentacion] evento ${tipo.valor} no registrado: $e');
+    }
+  }
+
+  Future<void> marcarHitoAlerta({
+    required String alertaId,
+    required HitoAlerta hito,
+    String? ambulanciaId,
+    Map<String, dynamic> campos = const {},
+    Map<String, dynamic> meta = const {},
+  }) async {
+    final batch = _db.batch();
+    batch.update(_db.collection('alertas').doc(alertaId), {
+      hito.campo: FieldValue.serverTimestamp(),
+      ...campos,
+    });
+    batch.set(_eventosCol(alertaId).doc(),
+        _datosEvento(hito.evento, ambulanciaId, meta));
+    await batch.commit();
+  }
+
+  Future<void> registrarRecalculoRuta({
+    required String alertaId,
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  }) async {
+    final batch = _db.batch();
+    batch.update(_db.collection('alertas').doc(alertaId),
+        {'recalculos': FieldValue.increment(1)});
+    batch.set(_eventosCol(alertaId).doc(),
+        _datosEvento(TipoEventoAlerta.recalculo, ambulanciaId, meta));
+    await batch.commit();
+  }
+
+  Future<void> cambiarEstadoOperativo(String ambulanciaId, String estado) {
+    final ref = _db.collection('ambulancias').doc(ambulanciaId);
+    return _conRespaldo<void>(
+      'cambiarEstadoOperativo',
+      () => ref.update({
+        'estadoOperativo': estado,
+        'ultimoCambioEstadoAt': FieldValue.serverTimestamp(),
+      }),
+      () => ref.update({'estadoOperativo': estado}),
+    );
+  }
 
 
   //Usuarios
@@ -193,74 +379,101 @@ class FirestoreService implements IDatabaseService{
     required String ambulanciaId,
     String? conductorId,
     String? paramedicoId,
+  }) {
+    return _conRespaldo(
+      'asignarPersonal',
+      () => _asignarPersonalTx(ambulanciaId, conductorId, paramedicoId,
+          instrumentar: true),
+      () => _asignarPersonalTx(ambulanciaId, conductorId, paramedicoId,
+          instrumentar: false),
+    );
+  }
+
+  Future<bool> _asignarPersonalTx(
+    String ambulanciaId,
+    String? conductorId,
+    String? paramedicoId, {
+    required bool instrumentar,
   }) async {
     final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
-    final conductorRef = conductorId != null
-        ? _conductoresCol().doc(conductorId)
-        : null;
+    final conductorRef =
+        conductorId != null ? _conductoresCol().doc(conductorId) : null;
     final paramRef =
         paramedicoId != null ? _paramedicosCol().doc(paramedicoId) : null;
 
-    try {
-      await _db.runTransaction((tx) async {
-        final ambSnap = await tx.get(ambRef);
-        if (!ambSnap.exists) throw Exception('Ambulancia no existe');
+    await _db.runTransaction((tx) async {
+      final ambSnap = await tx.get(ambRef);
+      if (!ambSnap.exists) throw Exception('Ambulancia no existe');
 
-        final updateMap = <String, dynamic>{};
-        if (conductorId != null) updateMap['currentConductorId'] = conductorId;
-        if (paramedicoId != null) {
-          updateMap['currentParamedicoId'] = paramedicoId;
-        }
-        updateMap['estadoOperativo'] = 'enRuta';
+      final updateMap = <String, dynamic>{};
+      if (conductorId != null) updateMap['currentConductorId'] = conductorId;
+      if (paramedicoId != null) {
+        updateMap['currentParamedicoId'] = paramedicoId;
+      }
+      updateMap['estadoOperativo'] = 'enRuta';
+      if (instrumentar) {
+        updateMap['enTurno'] = true;
+        updateMap['turnoIniciadoAt'] = FieldValue.serverTimestamp();
+        updateMap['ultimoCambioEstadoAt'] = FieldValue.serverTimestamp();
+      }
 
-        tx.update(ambRef, updateMap);
+      tx.update(ambRef, updateMap);
 
-        if (conductorRef != null) {
-          tx.update(conductorRef,
-              {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
-        }
-        if (paramRef != null) {
-          tx.update(
-              paramRef, {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
-        }
-      });
-      return true;
-    } catch (e) {
-      rethrow;
-    }
+      if (conductorRef != null) {
+        tx.update(
+            conductorRef, {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
+      }
+      if (paramRef != null) {
+        tx.update(
+            paramRef, {'estado': 'ocupado', 'ambulanciaId': ambulanciaId});
+      }
+    });
+    return true;
   }
 
-  Future<bool> liberarPersonalYResetAmbulancia(String ambulanciaId) async {
+  Future<bool> liberarPersonalYResetAmbulancia(String ambulanciaId) {
+    return _conRespaldo(
+      'liberarPersonal',
+      () => _liberarPersonalTx(ambulanciaId, instrumentar: true),
+      () => _liberarPersonalTx(ambulanciaId, instrumentar: false),
+    );
+  }
+
+  Future<bool> _liberarPersonalTx(
+    String ambulanciaId, {
+    required bool instrumentar,
+  }) async {
     final ambRef = _db.collection('ambulancias').doc(ambulanciaId);
-    try {
-      await _db.runTransaction((tx) async {
-        final ambSnap = await tx.get(ambRef);
-        if (!ambSnap.exists) return;
-        final data = ambSnap.data()!;
-        final currentConductorId = data['currentConductorId'] as String?;
-        final currentParamedicoId = data['currentParamedicoId'] as String?;
+    await _db.runTransaction((tx) async {
+      final ambSnap = await tx.get(ambRef);
+      if (!ambSnap.exists) return;
+      final data = ambSnap.data()!;
+      final currentConductorId = data['currentConductorId'] as String?;
+      final currentParamedicoId = data['currentParamedicoId'] as String?;
 
-        tx.update(ambRef, {
-          'currentConductorId': null,
-          'currentParamedicoId': null,
-          'currentAlertaId': null,
-          'estadoOperativo': 'habilitada',
-        });
-
-        if (currentConductorId != null) {
-          tx.update(_conductoresCol().doc(currentConductorId),
-              {'estado': 'disponible', 'ambulanciaId': null});
-        }
-
-        if (currentParamedicoId != null) {
-          tx.update(_paramedicosCol().doc(currentParamedicoId),
-              {'estado': 'disponible', 'ambulanciaId': null});
-        }
+      tx.update(ambRef, {
+        'currentConductorId': null,
+        'currentParamedicoId': null,
+        'currentAlertaId': null,
+        'estadoOperativo': 'habilitada',
+        if (instrumentar) ...{
+          'enTurno': false,
+          'turnoIniciadoAt': FieldValue.delete(),
+          'ultimoCambioEstadoAt': FieldValue.serverTimestamp(),
+        },
       });
-      return true;
-    } catch (e) {
-      rethrow;
-    }
+
+      if (currentConductorId != null) {
+        tx.update(_conductoresCol().doc(currentConductorId),
+            {'estado': 'disponible', 'ambulanciaId': null});
+      }
+
+      if (currentParamedicoId != null) {
+        tx.update(_paramedicosCol().doc(currentParamedicoId),
+            {'estado': 'disponible', 'ambulanciaId': null});
+      }
+    });
+    return true;
   }
 
   //Hospitales

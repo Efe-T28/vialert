@@ -24,6 +24,12 @@ class MapController extends ChangeNotifier {
   RutaDetallada? rutaActual;
   int _pasoActualIdx = 0;
 
+  /// Se invoca cada vez que la ruta se recalcula por desvío (y el servicio de
+  /// mapas devolvió una ruta nueva). Lo usa la instrumentación; si nadie lo
+  /// asigna, no pasa nada. Un fallo dentro del callback nunca afecta la
+  /// navegación.
+  VoidCallback? onRecalculoPorDesvio;
+
   static const double _desviacionMaximaMetros = 30.0;
   static const Duration _intervaloMinimoRecalculo = Duration(seconds: 10);
   static const double _metrosParaCompletarPaso = 25.0;
@@ -106,8 +112,17 @@ class MapController extends ChangeNotifier {
 
     _recalculando = true;
     _ultimoRecalculo = ahora;
+    final rutaAnterior = rutaActual;
     await createRoute(posicion, _destinoActual!);
     _recalculando = false;
+
+    if (!identical(rutaActual, rutaAnterior)) {
+      try {
+        onRecalculoPorDesvio?.call();
+      } catch (e) {
+        debugPrint('[instrumentacion] callback de recálculo falló: $e');
+      }
+    }
   }
 
   /// Marca como completados los pasos cuyo final ya se alcanzó, para que

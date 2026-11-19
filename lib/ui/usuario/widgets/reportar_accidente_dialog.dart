@@ -4,12 +4,43 @@ import 'package:image_picker/image_picker.dart';
 import '../../../config/app_config.dart';
 import '../../../controllers/alert_controller.dart';
 
-/// Resultado del diálogo: descripción y fotos (en bytes) elegidas.
+/// Tipos de incidente. El valor se guarda tal cual en `alertas.type` y se
+/// muestra en listas y notificaciones, por eso es texto legible.
+/// 'Accidente' va primero: era el único valor hasta ahora.
+const List<String> tiposDeAlerta = [
+  'Accidente',
+  'Emergencia médica',
+  'Incendio',
+  'Otro',
+];
+
+/// Gravedad que indica quien reporta. [valor] es lo que se guarda en
+/// `alertas.prioridad` y lo que leerá el panel web (no cambiarlo).
+enum PrioridadAlerta {
+  critica('critica', 'Crítica', Color(0xFFFFCDD2)),
+  alta('alta', 'Alta', Color(0xFFFFE0B2)),
+  media('media', 'Media', Color(0xFFFFF9C4)),
+  baja('baja', 'Baja', Color(0xFFC8E6C9));
+
+  final String valor;
+  final String etiqueta;
+  final Color color;
+  const PrioridadAlerta(this.valor, this.etiqueta, this.color);
+}
+
+/// Resultado del diálogo: tipo, gravedad, descripción y fotos (en bytes).
 class ReporteAccidente {
   final String descripcion;
   final List<Uint8List> fotos;
+  final String tipo;
+  final PrioridadAlerta prioridad;
 
-  const ReporteAccidente({required this.descripcion, this.fotos = const []});
+  const ReporteAccidente({
+    required this.descripcion,
+    this.fotos = const [],
+    this.tipo = 'Accidente',
+    this.prioridad = PrioridadAlerta.media,
+  });
 }
 
 class ReportarAccidenteDialog extends StatefulWidget {
@@ -26,6 +57,9 @@ class _ReportarAccidenteDialogState extends State<ReportarAccidenteDialog> {
   final List<Uint8List> _fotos = [];
   bool _cargando = false;
   String? _error;
+  String _tipo = tiposDeAlerta.first;                 // ← nuevo
+  PrioridadAlerta _prioridad = PrioridadAlerta.media; // ← nuevo
+  
 
   int get _cupo => AlertController.maxFotos - _fotos.length;
 
@@ -79,6 +113,8 @@ class _ReportarAccidenteDialogState extends State<ReportarAccidenteDialog> {
       ReporteAccidente(
         descripcion: texto.isEmpty ? 'Sin descripción' : texto,
         fotos: List.of(_fotos),
+        tipo: _tipo,             // ← nuevo
+        prioridad: _prioridad,   // ← nuevo
       ),
     );
   }
@@ -91,7 +127,38 @@ class _ReportarAccidenteDialogState extends State<ReportarAccidenteDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+                    children: [
+            const Text('Tipo',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final t in tiposDeAlerta)
+                  ChoiceChip(
+                    label: Text(t),
+                    selected: _tipo == t,
+                    onSelected: (_) => setState(() => _tipo = t),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text('Gravedad',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final p in PrioridadAlerta.values)
+                  ChoiceChip(
+                    label: Text(p.etiqueta),
+                    selected: _prioridad == p,
+                    selectedColor: p.color,
+                    onSelected: (_) => setState(() => _prioridad = p),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _descripcion,
               decoration:

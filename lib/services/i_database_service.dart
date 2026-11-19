@@ -1,6 +1,7 @@
 import '../models/alerta_model.dart';
 import '../models/ambulancia_model.dart';
 import '../models/conductor_model.dart';
+import '../models/evento_alerta_model.dart';
 import '../models/hospital_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/personal_model.dart';
@@ -26,6 +27,40 @@ abstract class IDatabaseService {
     required String alertaId,
     required String ambulanciaId,
   });
+
+
+  // ---- Instrumentación (hora del servidor) ----
+  // Los controladores nunca escriben marcas de tiempo por su cuenta: usan
+  // estos métodos, y cada implementación decide de dónde sale la hora
+  // (Firestore: servidor; mock: reloj local).
+
+  /// Agrega un hecho a `alertas/{id}/eventos` (registro de solo agregar).
+  Future<void> registrarEvento({
+    required String alertaId,
+    required TipoEventoAlerta tipo,
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  });
+
+  /// Marca un hito de tiempo en la alerta, escribe [campos] adicionales
+  /// (hospital, ETA...) y registra su evento, todo en una sola escritura.
+  Future<void> marcarHitoAlerta({
+    required String alertaId,
+    required HitoAlerta hito,
+    String? ambulanciaId,
+    Map<String, dynamic> campos = const {},
+    Map<String, dynamic> meta = const {},
+  });
+
+  /// Suma un recálculo de ruta por desvío a la alerta y registra su evento.
+  Future<void> registrarRecalculoRuta({
+    required String alertaId,
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  });
+
+  /// Cambia `estadoOperativo` y sella `ultimoCambioEstadoAt`.
+  Future<void> cambiarEstadoOperativo(String ambulanciaId, String estado);
 
 
   //Usuarios

@@ -32,7 +32,7 @@ class AmbulanciaController extends ChangeNotifier {
   }
 
   Future<void> setEstado(String ambulanceId, String estado) async {
-    await _fs.updateAmbulancia(ambulanceId, {'estadoOperativo': estado});
+    await _fs.cambiarEstadoOperativo(ambulanceId, estado);
   }
 
   Future<void> limpiarAlertaActual(String ambulanceId) async {

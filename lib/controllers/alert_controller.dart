@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../config/app_config.dart';
 import '../services/i_database_service.dart';
 import '../services/i_storage_service.dart';
 import '../models/alerta_model.dart';
+import '../models/evento_alerta_model.dart';
 
 /// Estado en memoria de la subida de fotos de una alerta.
 class SubidaFotos {
@@ -54,6 +56,8 @@ class AlertController extends ChangeNotifier {
     required String creadaPorUsuarioId,
     String? creadaPorUid,
     List<Uint8List> fotos = const [],
+    String? prioridad,
+    bool simulada = AppConfig.datosSimulados,
   }) async {
     final id = _uuid.v4();
     final alerta = AlertaModel(
@@ -64,6 +68,8 @@ class AlertController extends ChangeNotifier {
       createdAt: DateTime.now(),
       creadaPorUsuarioId: creadaPorUsuarioId,
       creadaPorUid: creadaPorUid,
+      prioridad: prioridad,
+      simulada: simulada,
     );
     await _fs.crearAlerta(alerta);
 
@@ -145,10 +151,75 @@ class AlertController extends ChangeNotifier {
   Future<void> liberarAlerta(String alertaId, String ambulanciaId) =>
       _fs.liberarAlerta(alertaId: alertaId, ambulanciaId: ambulanciaId);
 
-  Future<void> marcarComoAtendida(String alertaId) async {
+  Future<void> marcarComoAtendida(String alertaId,
+      {String? ambulanciaId}) async {
     await _fs.updateAlerta(alertaId, {
       'estado': AlertState.atendida.name,
     });
+    registrarHito(alertaId, HitoAlerta.atendida, ambulanciaId: ambulanciaId);
+  }
+
+  // ---------- Instrumentación (nunca bloquea ni lanza) ----------
+  // Estos métodos devuelven de inmediato: la escritura se hace en segundo
+  // plano y un fallo solo queda en el log. Registrar un hito jamás debe
+  // retrasar o tumbar la atención de una emergencia.
+
+  void registrarHito(
+    String alertaId,
+    HitoAlerta hito, {
+    String? ambulanciaId,
+    Map<String, dynamic> campos = const {},
+    Map<String, dynamic> meta = const {},
+  }) =>
+      _enSegundoPlano(
+        'hito ${hito.campo}',
+        () => _fs.marcarHitoAlerta(
+          alertaId: alertaId,
+          hito: hito,
+          ambulanciaId: ambulanciaId,
+          campos: campos,
+          meta: meta,
+        ),
+      );
+
+  void registrarEvento(
+    String alertaId,
+    TipoEventoAlerta tipo, {
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  }) =>
+      _enSegundoPlano(
+        'evento ${tipo.valor}',
+        () => _fs.registrarEvento(
+          alertaId: alertaId,
+          tipo: tipo,
+          ambulanciaId: ambulanciaId,
+          meta: meta,
+        ),
+      );
+
+  void registrarRecalculoRuta(
+    String alertaId, {
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  }) =>
+      _enSegundoPlano(
+        'recálculo de ruta',
+        () => _fs.registrarRecalculoRuta(
+          alertaId: alertaId,
+          ambulanciaId: ambulanciaId,
+          meta: meta,
+        ),
+      );
+
+  void _enSegundoPlano(String nombre, Future<void> Function() accion) {
+    try {
+      unawaited(accion().catchError((Object e) {
+        debugPrint('[instrumentacion] $nombre falló: $e');
+      }));
+    } catch (e) {
+      debugPrint('[instrumentacion] $nombre falló: $e');
+    }
   }
 
   List<AlertaModel> getAlertasByUsuario(String usuarioId) {
@@ -185,4 +256,4 @@ class AlertController extends ChangeNotifier {
     }
     return null;
   }
-}
+}

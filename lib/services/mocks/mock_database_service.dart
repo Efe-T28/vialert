@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/alerta_model.dart';
 import '../../models/ambulancia_model.dart';
 import '../../models/conductor_model.dart';
+import '../../models/evento_alerta_model.dart';
 import '../../models/hospital_model.dart';
 import '../../models/paramedico_model.dart';
 import '../../models/personal_model.dart';
@@ -17,6 +18,8 @@ class MockDatabaseService implements IDatabaseService {
   final Map<String, ConductorModel> _conductores = {};
   final Map<String, ParamedicoModel> _paramedicos = {};
   final Map<String, AmbulanciaModel> _ambulancias = {};
+  final Map<String, List<EventoAlertaModel>> _eventos = {};
+  int _seqEvento = 0;
   final Map<String, HospitalModel> _hospitales = {
     'hospital-mock-1': HospitalModel(
       id: 'hospital-mock-1',
@@ -34,6 +37,10 @@ class MockDatabaseService implements IDatabaseService {
 
   void _notificar() => _cambios.add(null);
 
+  /// Eventos registrados para una alerta, en orden cronológico (para pruebas).
+  List<EventoAlertaModel> eventosDe(String alertaId) =>
+      List.unmodifiable(_eventos[alertaId] ?? const []);
+
   Stream<List<T>> _observar<T>(List<T> Function() leer) async* {
     yield leer();
     await for (final _ in _cambios.stream) {
@@ -48,8 +55,14 @@ class MockDatabaseService implements IDatabaseService {
 
   @override
   Future<void> crearAlerta(AlertaModel alerta) async {
-    _alertas[alerta.id] = alerta;
+    _alertas[alerta.id] = AlertaModel.fromMap(
+        alerta.id, {...alerta.toMap(), 'createdAtServer': DateTime.now()});
     _notificar();
+    await registrarEvento(
+      alertaId: alerta.id,
+      tipo: TipoEventoAlerta.creada,
+      meta: {if (alerta.prioridad != null) 'prioridad': alerta.prioridad},
+    );
   }
 
   @override
@@ -95,8 +108,24 @@ class MockDatabaseService implements IDatabaseService {
     await updateAlerta(alertaId, {
       'estado': AlertState.enProceso.name,
       'ambulanciaAsignada': ambulanciaId,
+      'tomadaAt': DateTime.now(),
+      if (amb?.currentConductorId != null)
+        'conductorId': amb!.currentConductorId,
+      if (amb?.currentParamedicoId != null)
+        'paramedicoId': amb!.currentParamedicoId,
     });
     await updateAmbulancia(ambulanciaId, {'currentAlertaId': alertaId});
+    await registrarEvento(
+      alertaId: alertaId,
+      tipo: TipoEventoAlerta.tomada,
+      ambulanciaId: ambulanciaId,
+      meta: {
+        if (amb?.currentConductorId != null)
+          'conductorId': amb!.currentConductorId,
+        if (amb?.currentParamedicoId != null)
+          'paramedicoId': amb!.currentParamedicoId,
+      },
+    );
     return TomarAlertaResultado.ok;
   }
 
@@ -114,10 +143,81 @@ class MockDatabaseService implements IDatabaseService {
       await updateAlerta(alertaId, {
         'estado': AlertState.activa.name,
         'ambulanciaAsignada': null,
+        'liberaciones': alerta.liberaciones + 1,
+        'tomadaAt': null,
+        'rutaIniciadaAt': null,
+        'etaInicialSeg': null,
+        'distanciaInicialM': null,
+        'conductorId': null,
+        'paramedicoId': null,
       });
+      await registrarEvento(
+        alertaId: alertaId,
+        tipo: TipoEventoAlerta.liberada,
+        ambulanciaId: ambulanciaId,
+      );
     }
     await updateAmbulancia(ambulanciaId, {'currentAlertaId': null});
   }
+
+  // ---------- Instrumentación ----------
+  @override
+  Future<void> registrarEvento({
+    required String alertaId,
+    required TipoEventoAlerta tipo,
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  }) async {
+    (_eventos[alertaId] ??= []).add(EventoAlertaModel(
+      id: 'evt-${_seqEvento++}',
+      tipo: tipo,
+      ts: DateTime.now(),
+      ambulanciaId: ambulanciaId,
+      meta: Map<String, dynamic>.from(meta),
+    ));
+  }
+
+  @override
+  Future<void> marcarHitoAlerta({
+    required String alertaId,
+    required HitoAlerta hito,
+    String? ambulanciaId,
+    Map<String, dynamic> campos = const {},
+    Map<String, dynamic> meta = const {},
+  }) async {
+    await updateAlerta(alertaId, {hito.campo: DateTime.now(), ...campos});
+    await registrarEvento(
+      alertaId: alertaId,
+      tipo: hito.evento,
+      ambulanciaId: ambulanciaId,
+      meta: meta,
+    );
+  }
+
+  @override
+  Future<void> registrarRecalculoRuta({
+    required String alertaId,
+    String? ambulanciaId,
+    Map<String, dynamic> meta = const {},
+  }) async {
+    final actual = _alertas[alertaId];
+    if (actual != null) {
+      await updateAlerta(alertaId, {'recalculos': actual.recalculos + 1});
+    }
+    await registrarEvento(
+      alertaId: alertaId,
+      tipo: TipoEventoAlerta.recalculo,
+      ambulanciaId: ambulanciaId,
+      meta: meta,
+    );
+  }
+
+  @override
+  Future<void> cambiarEstadoOperativo(String ambulanciaId, String estado) =>
+      updateAmbulancia(ambulanciaId, {
+        'estadoOperativo': estado,
+        'ultimoCambioEstadoAt': DateTime.now(),
+      });
 
   // ---------- Usuarios ----------
   @override
@@ -208,6 +308,9 @@ class MockDatabaseService implements IDatabaseService {
       if (conductorId != null) 'currentConductorId': conductorId,
       if (paramedicoId != null) 'currentParamedicoId': paramedicoId,
       'estadoOperativo': 'enRuta',
+      'enTurno': true,
+      'turnoIniciadoAt': DateTime.now(),
+      'ultimoCambioEstadoAt': DateTime.now(),
     });
     if (conductorId != null) {
       await updateConductor(
@@ -233,6 +336,9 @@ class MockDatabaseService implements IDatabaseService {
       'currentParamedicoId': null,
       'currentAlertaId': null,
       'estadoOperativo': 'habilitada',
+      'enTurno': false,
+      'turnoIniciadoAt': null,
+      'ultimoCambioEstadoAt': DateTime.now(),
     });
     if (conductorId != null) {
       await updateConductor(

@@ -70,7 +70,8 @@ class _UsuarioMapaScreenState extends State<UsuarioMapaScreen> {
         : 'Usuario Anónimo';
 
     await alertController.crearAlerta(
-      type: 'Accidente',
+      type: reporte.tipo,                         // antes: 'Accidente'
+      prioridad: reporte.prioridad.valor,         // ← nuevo
       description: reporte.descripcion,
       position: pos,
       creadaPorUsuarioId: nombreUsuario,
