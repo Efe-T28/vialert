@@ -5,6 +5,7 @@ import '../models/evento_alerta_model.dart';
 import '../models/hospital_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/personal_model.dart';
+import '../models/ubicacion_model.dart';
 import '../models/usuario_model.dart';
 
 abstract class IDatabaseService {
@@ -62,6 +63,15 @@ abstract class IDatabaseService {
   /// Cambia `estadoOperativo` y sella `ultimoCambioEstadoAt`.
   Future<void> cambiarEstadoOperativo(String ambulanciaId, String estado);
 
+
+  // ---- Ubicación en vivo ----
+  /// Sobrescribe `ubicaciones/{ambulanciaId}` (un documento por ambulancia).
+  /// El documento se borra solo al terminar el turno, dentro de
+  /// [liberarPersonalYResetAmbulancia].
+  Future<void> publicarUbicacion(String ambulanciaId, UbicacionModel ubicacion);
+
+  /// Posición de todas las ambulancias que publican. Lo usará el panel web.
+  Stream<List<UbicacionModel>> streamUbicaciones();
 
   //Usuarios
   Future<UsuarioModel?> getUsuarioByUid(String uid);

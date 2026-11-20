@@ -4,6 +4,7 @@ import '../../models/alerta_model.dart';
 import '../../models/ambulancia_model.dart';
 import '../../models/conductor_model.dart';
 import '../../models/evento_alerta_model.dart';
+import '../../models/ubicacion_model.dart';
 import '../../models/hospital_model.dart';
 import '../../models/paramedico_model.dart';
 import '../../models/personal_model.dart';
@@ -19,6 +20,7 @@ class MockDatabaseService implements IDatabaseService {
   final Map<String, ParamedicoModel> _paramedicos = {};
   final Map<String, AmbulanciaModel> _ambulancias = {};
   final Map<String, List<EventoAlertaModel>> _eventos = {};
+  final Map<String, UbicacionModel> _ubicaciones = {};
   int _seqEvento = 0;
   final Map<String, HospitalModel> _hospitales = {
     'hospital-mock-1': HospitalModel(
@@ -159,6 +161,20 @@ class MockDatabaseService implements IDatabaseService {
     }
     await updateAmbulancia(ambulanciaId, {'currentAlertaId': null});
   }
+
+  // ---------- Ubicación en vivo ----------
+  @override
+  Future<void> publicarUbicacion(
+      String ambulanciaId, UbicacionModel ubicacion) async {
+    _ubicaciones[ambulanciaId] = UbicacionModel.fromMap(
+        {...ubicacion.toMap(), 'actualizadoAt': DateTime.now()},
+        id: ambulanciaId);
+    _notificar();
+  }
+
+  @override
+  Stream<List<UbicacionModel>> streamUbicaciones() =>
+      _observar(() => _ubicaciones.values.toList());
 
   // ---------- Instrumentación ----------
   @override
@@ -340,6 +356,8 @@ class MockDatabaseService implements IDatabaseService {
       'turnoIniciadoAt': null,
       'ultimoCambioEstadoAt': DateTime.now(),
     });
+    _ubicaciones.remove(ambulanciaId);
+    _notificar();
     if (conductorId != null) {
       await updateConductor(
           conductorId, {'estado': 'disponible', 'ambulanciaId': null});

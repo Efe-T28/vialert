@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../models/ubicacion_model.dart';
 import '../i_location_service.dart';
 
 /// Simula una ambulancia moviéndose desde una ubicación fija (Valledupar),
@@ -19,5 +20,16 @@ class MockLocationService implements ILocationService {
         _ubicacionFija.longitude + deriva,
       );
     }).take(30);
+  }
+
+  @override
+  Stream<UbicacionModel>? onPositionChanged({bool segundoPlano = false}) {
+    return onLocationChanged()?.map((p) => UbicacionModel(
+          lat: p.latitude,
+          lng: p.longitude,
+          rumbo: 45,
+          velocidadKmh: 30,
+          precisionM: 5,
+        ));
   }
 }

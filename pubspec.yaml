@@ -45,6 +45,7 @@ dependencies:
   firebase_storage: ^12.4.10
   flutter_local_notifications: ^23.0.1
   flutter_tts: ^4.2.5
+  package_info_plus: ^10.2.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

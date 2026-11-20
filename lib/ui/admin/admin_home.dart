@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'admin_crear_personal_screen.dart';
 import 'admin_perfil_screen.dart';
+import 'admin_flota_vivo_screen.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -14,6 +15,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   static const List<Widget> _screens = [
     AdminCrearPersonalScreen(),
+    AdminFlotaVivoScreen(),               // ← nuevo
     AdminPerfilScreen(),
   ];
 
@@ -30,6 +32,10 @@ class _AdminHomeState extends State<AdminHome> {
           NavigationDestination(
             icon: Icon(Icons.group_add),
             label: 'Crear Personal',
+          ),
+          NavigationDestination(              // ← nuevo
+            icon: Icon(Icons.map),
+            label: 'Flota en vivo',
           ),
           NavigationDestination(
             icon: Icon(Icons.person),

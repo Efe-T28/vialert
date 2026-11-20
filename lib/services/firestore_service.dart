@@ -11,6 +11,7 @@ import '../models/hospital_model.dart';
 import '../models/paramedico_model.dart';
 import '../models/usuario_model.dart';
 import '../models/personal_model.dart';
+import '../models/ubicacion_model.dart';
 import './i_database_service.dart';
 
 class FirestoreService implements IDatabaseService{
@@ -227,6 +228,22 @@ class FirestoreService implements IDatabaseService{
 
       tx.update(ambRef, {'currentAlertaId': null});
     });
+  }
+
+  // ---------- Ubicación en vivo ----------
+
+  Future<void> publicarUbicacion(
+      String ambulanciaId, UbicacionModel ubicacion) {
+    return _db.collection('ubicaciones').doc(ambulanciaId).set({
+      ...ubicacion.toMap(),
+      'actualizadoAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<UbicacionModel>> streamUbicaciones() {
+    return _db.collection('ubicaciones').snapshots().map((snap) => snap.docs
+        .map((d) => UbicacionModel.fromMap(d.data(), id: d.id))
+        .toList());
   }
 
   // ---------- Instrumentación: eventos e hitos ----------
@@ -462,6 +479,11 @@ class FirestoreService implements IDatabaseService{
           'ultimoCambioEstadoAt': FieldValue.serverTimestamp(),
         },
       });
+
+      // Fin de turno: la unidad deja de aparecer en el mapa en vivo.
+      if (instrumentar) {
+        tx.delete(_db.collection('ubicaciones').doc(ambulanciaId));
+      }
 
       if (currentConductorId != null) {
         tx.update(_conductoresCol().doc(currentConductorId),

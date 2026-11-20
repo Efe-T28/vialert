@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vialert/firebase_options.dart';
 import 'controllers/auth_controller.dart';
@@ -13,6 +14,7 @@ import 'controllers/flota_controller.dart';
 import 'controllers/hospital_controller.dart';
 import 'controllers/guia_voz.dart';
 import 'controllers/notificador_alertas.dart';
+import 'controllers/ubicacion_publisher.dart';
 import 'services/i_auth_service.dart';
 import 'services/i_database_service.dart';
 import 'services/i_location_service.dart';
@@ -30,6 +32,14 @@ import 'ui/app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Versión instalada: se publica junto a la ubicación para que el panel sepa
+  // qué unidades faltan por actualizar.
+  String appVersion = 'desconocida';
+  try {
+    final info = await PackageInfo.fromPlatform();
+    appVersion = '${info.version}+${info.buildNumber}';
+  } catch (_) {}
 
   // Única línea que decide la familia de servicios de toda la app.
   final AppServicesFactory servicios = FirebaseServicesFactory();
@@ -90,6 +100,23 @@ void main() async {
                   ctx.read<AlertController>(),
                   ctx.read<INotificationService>(),
                 )),
+        Provider<UbicacionPublisher>(
+          create: (ctx) {
+            final atencion = ctx.read<AtencionAlertaController>();
+            return UbicacionPublisher(
+              locationService: ctx.read<ILocationService>(),
+              db: ctx.read<IDatabaseService>(),
+              appVersion: appVersion,
+              contexto: () => ContextoUbicacion(
+                alertaId: atencion.isEnRuta ? atencion.selectedAlertaId : null,
+                estadoOperativo: atencion.isEnRutaHospital
+                    ? 'enRutaHospital'
+                    : (atencion.isEnRuta ? 'enRuta' : 'habilitada'),
+              ),
+            );
+          },
+          dispose: (_, p) => p.detener(),
+        ),
         ChangeNotifierProvider<GuiaVoz>(
             create: (ctx) => GuiaVoz(
                   ctx.read<AtencionAlertaController>(),
